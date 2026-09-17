@@ -250,8 +250,6 @@ export function Profile() {
                   <input className="finput" value={ghUrl} onChange={(e) => setGhUrl(e.target.value)} placeholder="github.com/…" />
                   <button className="btng block" style={{ padding: 9, marginTop: 8 }} onClick={linkManual}>{L.connectManual}</button>
                 </div>
-                <div style={{ textAlign: "center", fontSize: 11, color: "var(--faint)", fontWeight: 700 }}>— {L.optional} —</div>
-                <a className="btnp block" style={{ padding: 10, textDecoration: "none", boxSizing: "border-box" }} href="/api/github/connect">{L.connectOauth}</a>
               </div>
             ) : (
               p.githubUrl && <a className="link" style={{ fontSize: 13 }} href={p.githubUrl} target="_blank" rel="noreferrer">{p.githubUrl}</a>
