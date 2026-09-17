@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { PostDTO } from "../api/types";
@@ -28,9 +28,39 @@ export function Profile() {
   const [tab, setTab] = useState<"posts" | "projects" | "agents" | "skills" | "ach">("posts");
   const [ghUrl, setGhUrl] = useState("");
   const [skill, setSkill] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editBio, setEditBio] = useState("");
+  const [editLinks, setEditLinks] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const load = () => api.get<ProfileData>(`/profile/${nickname}`).then(setData);
   useEffect(() => { load(); }, [nickname]);
+
+  function startEdit() {
+    setEditBio(data?.profile.bio ?? "");
+    setEditLinks(data?.profile.socialLinks?.length ? [...data.profile.socialLinks] : [""]);
+    setEditing(true);
+  }
+  async function saveProfile() {
+    setSaving(true);
+    try {
+      await api.put("/profile", { bio: editBio, socialLinks: editLinks.map((s) => s.trim()).filter(Boolean) });
+      await load();
+      await refresh();
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function onAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const { url } = await api.upload(file);
+    await api.put("/profile", { avatarUrl: url });
+    await load();
+    await refresh();
+  }
 
   if (!data) return <Layout mode="page"><div style={{ padding: 40, textAlign: "center" }}><span className="spin" /></div></Layout>;
   const p = data.profile;
@@ -70,14 +100,57 @@ export function Profile() {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 290px", gap: 22, alignItems: "start" }}>
         <div>
           <div className="chunk" style={{ padding: "22px 24px", marginBottom: 20, display: "flex", gap: 20, alignItems: "flex-start" }}>
-            <Avatar nickname={p.nickname} avatarUrl={p.avatarUrl} size={74} color="var(--ac)" />
-            <div style={{ flex: 1 }}>
-              <h1 style={{ fontWeight: 700, fontSize: 30 }}>{p.nickname}</h1>
-              <div style={{ fontSize: 13, color: "var(--faint)", fontWeight: 700, margin: "2px 0 10px" }}>@{p.nickname}</div>
-              {p.bio && <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 10px", maxWidth: 520, fontWeight: 600, color: "var(--text)" }}>{p.bio}</p>}
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                {p.socialLinks.map((s, i) => <a key={i} className="link" style={{ fontSize: 13 }} href={s} target="_blank" rel="noreferrer">{s}</a>)}
+            <div style={{ position: "relative", flex: "none" }}>
+              <Avatar nickname={p.nickname} avatarUrl={p.avatarUrl} size={74} color="var(--ac)" onClick={p.isMe ? () => fileInput.current?.click() : undefined} />
+              {p.isMe && (
+                <>
+                  <button className="av" title={L.changePhoto} onClick={() => fileInput.current?.click()}
+                    style={{ position: "absolute", right: -4, bottom: -4, width: 28, height: 28, background: "var(--ac)", border: "var(--sw) solid var(--card)", cursor: "pointer" }}>
+                    <Icon name="image" size={13} style={{ color: "var(--ac-ink)" }} />
+                  </button>
+                  <input ref={fileInput} type="file" accept="image/*" style={{ display: "none" }} onChange={onAvatarPick} />
+                </>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h1 style={{ fontWeight: 700, fontSize: 30 }}>{p.nickname}</h1>
+                  <div style={{ fontSize: 13, color: "var(--faint)", fontWeight: 700, margin: "2px 0 10px" }}>@{p.nickname}</div>
+                </div>
+                {p.isMe && !editing && <button className="btng" style={{ padding: "8px 14px" }} onClick={startEdit}><Icon name="pen" size={13} /> {L.editProfile}</button>}
               </div>
+
+              {editing ? (
+                <div style={{ marginTop: 4 }}>
+                  <div className="field2"><label>{L.shortBio}</label><textarea className="finput" value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder={L.bioPlaceholder} /></div>
+                  <div className="field2">
+                    <label>{L.contacts}</label>
+                    {editLinks.map((lnk, i) => (
+                      <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                        <input className="finput" value={lnk} placeholder={L.linkPlaceholder}
+                          onChange={(e) => setEditLinks((ls) => ls.map((x, j) => (j === i ? e.target.value : x)))} />
+                        <button className="btng" style={{ padding: "8px 12px" }} onClick={() => setEditLinks((ls) => ls.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
+                      </div>
+                    ))}
+                    <button className="link" style={{ fontSize: 13 }} onClick={() => setEditLinks((ls) => [...ls, ""])}>＋ {L.addLink}</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button className="btnp" style={{ padding: "9px 18px" }} onClick={saveProfile} disabled={saving}>{L.save}</button>
+                    <button className="btng" onClick={() => setEditing(false)}>{L.cancel}</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {p.bio && <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 10px", maxWidth: 520, fontWeight: 600, color: "var(--text)" }}>{p.bio}</p>}
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    {p.socialLinks.map((s, i) => {
+                      const href = s.startsWith("http") ? s : s.startsWith("@") ? `https://t.me/${s.slice(1)}` : `https://${s}`;
+                      return <a key={i} className="link" style={{ fontSize: 13 }} href={href} target="_blank" rel="noreferrer">{s}</a>;
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

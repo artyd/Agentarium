@@ -104,6 +104,13 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     loading: "Завантаження…",
     empty: "Порожньо",
     tempPasswordNote: "Тимчасовий пароль (передайте користувачу):",
+    editProfile: "Редагувати профіль",
+    save: "Зберегти",
+    contacts: "Контакти та соцмережі",
+    addLink: "Додати посилання",
+    changePhoto: "Змінити фото",
+    remove: "Видалити",
+    linkPlaceholder: "https://… або @нік",
   },
   en: {
     heroKicker: "A private guild for agent builders",
@@ -207,6 +214,13 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     loading: "Loading…",
     empty: "Empty",
     tempPasswordNote: "Temporary password (share with the user):",
+    editProfile: "Edit profile",
+    save: "Save",
+    contacts: "Contacts & socials",
+    addLink: "Add link",
+    changePhoto: "Change photo",
+    remove: "Remove",
+    linkPlaceholder: "https://… or @handle",
   },
 };
 
