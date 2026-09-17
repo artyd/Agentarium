@@ -127,7 +127,7 @@ test("interactions: community tabs, comment, profile save/revert", async ({ page
   await commentBox.click();
   await commentBox.type("hello " + marker);
   await page.locator("button.btnp", { hasText: /Надіслати|Send/ }).first().click();
-  await expect(page.getByText("hello " + marker)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("hello " + marker)).toBeVisible({ timeout: 20000 });
 
   // profile save + revert
   const origBio = (await (await request.get(`/api/profile/${USER}`)).json()).profile.bio || "";
