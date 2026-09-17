@@ -163,3 +163,26 @@ test("share modal opens from the feed", async ({ page }) => {
   }
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("long post truncated in feed, full on detail", async ({ page, request }) => {
+  test.skip(!PASS, "AG_PASS not provided");
+  await request.post("/api/auth/login", { data: { nickname: USER, password: PASS }, headers: { Origin: BASE } });
+  const marker = "trunc-" + Date.now();
+  const created = await (await request.post("/api/posts", { data: { type: "thought", title: marker, bodyHtml: "<p>" + "L".repeat(300) + "</p>" }, headers: { Origin: BASE } })).json();
+  const pid = created.post.id;
+
+  await login(page);
+  await page.goto("/");
+  await page.waitForTimeout(1200);
+  const card = page.locator("article.chunk").filter({ hasText: marker }).first();
+  const cardText = await card.innerText();
+  expect(cardText).toContain("…");
+  expect((cardText.match(/L/g) ?? []).length).toBeLessThan(200);
+
+  await page.goto(`/post/${pid}`);
+  await page.waitForTimeout(800);
+  const detailText = await page.locator("article.chunk").first().innerText();
+  expect((detailText.match(/L/g) ?? []).length).toBeGreaterThan(250);
+
+  await request.delete(`/api/posts/${pid}`, { headers: { Origin: BASE } });
+});
