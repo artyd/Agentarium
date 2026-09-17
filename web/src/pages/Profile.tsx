@@ -5,7 +5,9 @@ import type { PostDTO } from "../api/types";
 import { Layout } from "../components/Layout";
 import { PostCard } from "../components/PostCard";
 import { Avatar } from "../components/Avatar";
+import { Select } from "../components/Select";
 import { Icon } from "../icons/Icon";
+import { PLATFORMS, parseLink, linkHref, linkText, platform } from "../store/social";
 import { useAuth, useLang } from "../store/providers";
 
 type Project = { id: string; title: string; description: string | null; githubRepoUrl: string | null; status: string | null };
@@ -39,13 +41,18 @@ export function Profile() {
 
   function startEdit() {
     setEditBio(data?.profile.bio ?? "");
-    setEditLinks(data?.profile.socialLinks?.length ? [...data.profile.socialLinks] : [""]);
+    const links = data?.profile.socialLinks ?? [];
+    setEditLinks(links.length ? links.map((s) => { const { key, value } = parseLink(s); return `${key}|${value}`; }) : ["website|"]);
     setEditing(true);
   }
+  const setLinkPlatform = (i: number, key: string) => setEditLinks((ls) => ls.map((s, j) => (j === i ? `${key}|${parseLink(s).value}` : s)));
+  const setLinkValue = (i: number, value: string) => setEditLinks((ls) => ls.map((s, j) => (j === i ? `${parseLink(s).key}|${value}` : s)));
+  const removeLink = (i: number) => setEditLinks((ls) => ls.filter((_, j) => j !== i));
+  const addLink = () => setEditLinks((ls) => [...ls, "website|"]);
   async function saveProfile() {
     setSaving(true);
     try {
-      await api.put("/profile", { bio: editBio, socialLinks: editLinks.map((s) => s.trim()).filter(Boolean) });
+      await api.put("/profile", { bio: editBio, socialLinks: editLinks.filter((s) => parseLink(s).value.trim()) });
       await load();
       await refresh();
       setEditing(false);
@@ -126,14 +133,19 @@ export function Profile() {
                   <div className="field2"><label>{L.shortBio}</label><textarea className="finput" value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder={L.bioPlaceholder} /></div>
                   <div className="field2">
                     <label>{L.contacts}</label>
-                    {editLinks.map((lnk, i) => (
-                      <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                        <input className="finput" value={lnk} placeholder={L.linkPlaceholder}
-                          onChange={(e) => setEditLinks((ls) => ls.map((x, j) => (j === i ? e.target.value : x)))} />
-                        <button className="btng" style={{ padding: "8px 12px" }} onClick={() => setEditLinks((ls) => ls.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
-                      </div>
-                    ))}
-                    <button className="link" style={{ fontSize: 13 }} onClick={() => setEditLinks((ls) => [...ls, ""])}>＋ {L.addLink}</button>
+                    {editLinks.map((lnk, i) => {
+                      const { key, value } = parseLink(lnk);
+                      return (
+                        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                          <div style={{ width: 148, flex: "none" }}>
+                            <Select value={key} onChange={(k) => setLinkPlatform(i, k)} options={PLATFORMS.map((p) => ({ value: p.key, label: p.label, icon: p.emoji }))} />
+                          </div>
+                          <input className="finput" value={value} placeholder={platform(key).placeholder} onChange={(e) => setLinkValue(i, e.target.value)} />
+                          <button className="btng" style={{ padding: "10px 12px", flex: "none" }} title={L.remove} onClick={() => removeLink(i)}><Icon name="x" size={12} /></button>
+                        </div>
+                      );
+                    })}
+                    <button className="btng" style={{ padding: "8px 14px", marginTop: 2 }} onClick={addLink}><Icon name="plus" size={12} /> {L.addLink}</button>
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <button className="btnp" style={{ padding: "9px 18px" }} onClick={saveProfile} disabled={saving}>{L.save}</button>
@@ -142,11 +154,16 @@ export function Profile() {
                 </div>
               ) : (
                 <>
-                  {p.bio && <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 10px", maxWidth: 520, fontWeight: 600, color: "var(--text)" }}>{p.bio}</p>}
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  {p.bio && <p style={{ fontSize: 15, lineHeight: 1.6, margin: "0 0 12px", maxWidth: 520, fontWeight: 600, color: "var(--text)" }}>{p.bio}</p>}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {p.socialLinks.map((s, i) => {
-                      const href = s.startsWith("http") ? s : s.startsWith("@") ? `https://t.me/${s.slice(1)}` : `https://${s}`;
-                      return <a key={i} className="link" style={{ fontSize: 13 }} href={href} target="_blank" rel="noreferrer">{s}</a>;
+                      const { key, value } = parseLink(s);
+                      const pl = platform(key);
+                      return (
+                        <a key={i} className="chip" style={{ textDecoration: "none", fontSize: 13 }} href={linkHref(key, value)} target="_blank" rel="noreferrer">
+                          <span style={{ fontSize: 15, lineHeight: 1 }}>{pl.emoji}</span> {linkText(value) || pl.label}
+                        </a>
+                      );
                     })}
                   </div>
                 </>

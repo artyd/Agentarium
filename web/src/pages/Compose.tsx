@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { CommunityListItem, PostDTO } from "../api/types";
 import { Layout } from "../components/Layout";
 import { RichEditor } from "../components/RichEditor";
+import { Select } from "../components/Select";
 import { Icon } from "../icons/Icon";
 import { useLang } from "../store/providers";
 import { POST_TYPES, typeLabel, TYPE_ICON } from "../i18n/strings";
@@ -89,10 +90,12 @@ export function Compose() {
         {communities.length > 0 && (
           <div className="field2">
             <label>{L.communities}</label>
-            <select className="finput" value={communityId} onChange={(e) => setCommunityId(e.target.value)}>
-              <option value="">—</option>
-              {communities.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </select>
+            <Select
+              value={communityId}
+              onChange={setCommunityId}
+              placeholder="—"
+              options={[{ value: "", label: "—" }, ...communities.map((c) => ({ value: c.id, label: c.title, icon: "👥" }))]}
+            />
           </div>
         )}
 
