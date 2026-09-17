@@ -5,7 +5,8 @@ import type { ThreadListItem, PublicUser, PostDTO } from "../api/types";
 import { Layout } from "../components/Layout";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { PostCard } from "../components/PostCard";
-import { useLang } from "../store/providers";
+import { Icon } from "../icons/Icon";
+import { useAuth, useLang } from "../store/providers";
 import { timeAgo, avatarColor } from "../store/utils";
 
 type CommunityView = {
@@ -17,6 +18,7 @@ export function Group() {
   const { slug } = useParams();
   const nav = useNavigate();
   const { L, lang } = useLang();
+  const { me } = useAuth();
   const [c, setC] = useState<CommunityView | null>(null);
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [posts, setPosts] = useState<PostDTO[]>([]);
@@ -37,6 +39,16 @@ export function Group() {
     if (!title.trim()) return;
     await api.post(`/communities/${slug}/threads`, { title });
     setTitle(""); setOpen(false); load();
+  }
+  async function leave() {
+    if (!window.confirm(L.confirmLeave)) return;
+    await api.post(`/communities/${slug}/leave`);
+    nav("/communities");
+  }
+  async function deleteCommunity() {
+    if (!window.confirm(L.confirmDeleteCommunity)) return;
+    await api.del(`/communities/${slug}`);
+    nav("/communities");
   }
 
   if (!c) return <Layout mode="feed"><div style={{ padding: 40, textAlign: "center" }}><span className="spin" /></div></Layout>;
@@ -63,6 +75,11 @@ export function Group() {
             {c.description && <p style={{ fontSize: 14, color: "var(--muted)", margin: "10px 0 0", fontWeight: 600 }}>{c.description}</p>}
             <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, marginTop: 8 }}>a/{c.slug} · {c.memberCount} {L.membersN}</div>
           </div>
+          {me && (me.id === c.owner.id ? (
+            <button className="btng" style={{ flex: "none", color: "#e0554b" }} onClick={deleteCommunity}><Icon name="x" size={13} /> {L.deleteCommunity}</button>
+          ) : c.isMember ? (
+            <button className="btng" style={{ flex: "none", color: "#e0554b" }} onClick={leave}><Icon name="logout" size={13} /> {L.leave}</button>
+          ) : null)}
         </div>
       </div>
 

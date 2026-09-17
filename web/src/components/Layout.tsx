@@ -22,10 +22,17 @@ export function Layout({
   const loc = useLocation();
   const { L } = useLang();
   const [unread, setUnread] = useState(0);
+  const [requests, setRequests] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    const load = () => api.get<{ totalUnread: number }>("/chats").then((r) => alive && setUnread(r.totalUnread)).catch(() => {});
+    const load = () => {
+      api.get<{ totalUnread: number }>("/chats").then((r) => alive && setUnread(r.totalUnread)).catch(() => {});
+      api
+        .get<{ joinRequests: unknown[]; friendRequests: unknown[]; communityInvites: unknown[] }>("/requests")
+        .then((r) => alive && setRequests((r.joinRequests?.length ?? 0) + (r.friendRequests?.length ?? 0) + (r.communityInvites?.length ?? 0)))
+        .catch(() => {});
+    };
     load();
     const s = getSocket();
     const onUnread = () => load();
@@ -35,6 +42,8 @@ export function Layout({
       s.off("chat:unread", onUnread);
     };
   }, [loc.pathname]);
+
+  const friendsBadge = unread + requests;
 
   const on = (prefix: string) =>
     (prefix === "/" ? loc.pathname === "/" : loc.pathname.startsWith(prefix)) ? "on" : "";
@@ -47,8 +56,8 @@ export function Layout({
           <div className={`nav ${on("/communities")}`} onClick={() => nav("/communities")}><Icon name="users" /> {L.communities}</div>
           <div className={`nav ${on("/friends")}`} onClick={() => nav("/friends")}>
             <Icon name="user" /> {L.friendsChats}
-            {unread > 0 && (
-              <span className="tag" style={{ marginLeft: "auto", background: "var(--pink)", color: "#fff", minWidth: 22, textAlign: "center", padding: "2px 7px" }}>{unread}</span>
+            {friendsBadge > 0 && (
+              <span className="tag" style={{ marginLeft: "auto", background: "var(--pink)", color: "#fff", minWidth: 22, textAlign: "center", padding: "2px 7px" }}>{friendsBadge}</span>
             )}
           </div>
         </div>

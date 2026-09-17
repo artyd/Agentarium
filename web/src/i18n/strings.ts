@@ -122,6 +122,12 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     shareToFriend: "Надіслати другу в чат",
     shareOther: "Поділитися…",
     noFriendsToShare: "Немає друзів або чатів",
+    leave: "Вийти",
+    deleteCommunity: "Видалити спільноту",
+    leaveChat: "Вийти з чату",
+    deleteChat: "Видалити чат",
+    confirmLeave: "Вийти? Ви більше не будете учасником.",
+    confirmDeleteCommunity: "Видалити спільноту разом з темами? Цю дію не можна скасувати.",
   },
   en: {
     heroKicker: "A private guild for agent builders",
@@ -243,6 +249,12 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     shareToFriend: "Send to a friend's chat",
     shareOther: "Share…",
     noFriendsToShare: "No friends or chats yet",
+    leave: "Leave",
+    deleteCommunity: "Delete community",
+    leaveChat: "Leave chat",
+    deleteChat: "Delete chat",
+    confirmLeave: "Leave? You'll no longer be a member.",
+    confirmDeleteCommunity: "Delete the community and its threads? This can't be undone.",
   },
 };
 

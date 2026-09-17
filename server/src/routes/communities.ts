@@ -123,6 +123,27 @@ export default async function communityRoutes(app: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
+  app.post("/communities/:slug/leave", { preHandler: requireAuth }, async (request, reply) => {
+    const slug = (request.params as { slug: string }).slug;
+    const c = await prisma.community.findUnique({ where: { slug } });
+    if (!c) return reply.code(404).send({ error: "not found" });
+    if (c.ownerId === request.user!.id) return reply.code(400).send({ error: "owner cannot leave; delete instead" });
+    await prisma.communityMember.deleteMany({ where: { communityId: c.id, userId: request.user!.id } });
+    return reply.send({ ok: true });
+  });
+
+  app.delete("/communities/:slug", { preHandler: requireAuth }, async (request, reply) => {
+    const slug = (request.params as { slug: string }).slug;
+    const c = await prisma.community.findUnique({ where: { slug } });
+    if (!c) return reply.code(404).send({ error: "not found" });
+    if (c.ownerId !== request.user!.id) return reply.code(403).send({ error: "forbidden" });
+    // detach posts/chats (no cascade), then delete community (members/invites/threads cascade)
+    await prisma.post.updateMany({ where: { communityId: c.id }, data: { communityId: null } });
+    await prisma.chat.updateMany({ where: { communityId: c.id }, data: { communityId: null } });
+    await prisma.community.delete({ where: { id: c.id } });
+    return reply.send({ ok: true });
+  });
+
   app.post("/communities/:slug/invite", { preHandler: requireAuth }, async (request, reply) => {
     const slug = (request.params as { slug: string }).slug;
     const parsed = z.object({ userId: z.string() }).safeParse(request.body);

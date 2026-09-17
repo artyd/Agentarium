@@ -118,6 +118,17 @@ export default async function chatRoutes(app: FastifyInstance) {
     };
   });
 
+  app.post("/chats/:id/leave", { preHandler: requireAuth }, async (request, reply) => {
+    const me = request.user!.id;
+    const chatId = (request.params as { id: string }).id;
+    const member = await prisma.chatMember.findUnique({ where: { chatId_userId: { chatId, userId: me } } });
+    if (!member) return reply.code(404).send({ error: "not a member" });
+    await prisma.chatMember.delete({ where: { chatId_userId: { chatId, userId: me } } });
+    const remaining = await prisma.chatMember.count({ where: { chatId } });
+    if (remaining === 0) await prisma.chat.delete({ where: { id: chatId } });
+    return reply.send({ ok: true });
+  });
+
   app.post("/chats/:id/read", { preHandler: requireAuth }, async (request, reply) => {
     const me = request.user!.id;
     const chatId = (request.params as { id: string }).id;

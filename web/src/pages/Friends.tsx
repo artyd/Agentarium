@@ -25,12 +25,29 @@ export function Friends() {
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editMsgText, setEditMsgText] = useState("");
+  const [reqCount, setReqCount] = useState(0);
   const scroller = useRef<HTMLDivElement>(null);
 
   const loadChats = () => api.get<{ chats: ChatListItem[] }>("/chats").then((r) => setChats(r.chats));
   const loadPeople = () => api.get<{ people: PersonDTO[] }>("/people").then((r) => setPeople(r.people));
 
-  useEffect(() => { loadChats(); loadPeople(); }, []);
+  useEffect(() => {
+    loadChats();
+    loadPeople();
+    api
+      .get<{ joinRequests: unknown[]; friendRequests: unknown[]; communityInvites: unknown[] }>("/requests")
+      .then((r) => setReqCount((r.joinRequests?.length ?? 0) + (r.friendRequests?.length ?? 0) + (r.communityInvites?.length ?? 0)))
+      .catch(() => {});
+  }, []);
+
+  async function leaveChat() {
+    if (!activeChat) return;
+    if (!window.confirm(L.confirmLeave)) return;
+    await api.post(`/chats/${activeChat}/leave`);
+    setActiveChat(null);
+    setMessages([]);
+    loadChats();
+  }
 
   // Socket wiring for the active chat.
   useEffect(() => {
@@ -108,7 +125,12 @@ export function Friends() {
   const right = (
     <div className="side" style={{ padding: 16 }}>
       <div className="kick" style={{ marginBottom: 10, color: "var(--ac)" }}>{L.requests}</div>
-      <button className="btng block" onClick={() => nav("/requests")}><Icon name="inbox" size={14} /> {L.requests}</button>
+      <button className={`block ${reqCount > 0 ? "btnp" : "btng"}`} style={{ position: "relative" }} onClick={() => nav("/requests")}>
+        <Icon name="inbox" size={14} /> {L.requests}
+        {reqCount > 0 && (
+          <span className="tag" style={{ marginLeft: 8, background: "var(--pink)", color: "#fff", minWidth: 20, textAlign: "center", padding: "1px 7px" }}>{reqCount}</span>
+        )}
+      </button>
     </div>
   );
 
@@ -162,6 +184,9 @@ export function Friends() {
                   <Avatar nickname={active.title} avatarUrl={active.others[0]?.avatarUrl} size={34} />
                   <div className="fk" style={{ fontWeight: 600 }}>{active.title}</div>
                   {typingUser && <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, marginLeft: 8 }}>{typingUser} {L.typing}</span>}
+                  <button className="btng" style={{ marginLeft: "auto", padding: "6px 12px", boxShadow: "none", color: "#e0554b" }} onClick={leaveChat}>
+                    <Icon name="logout" size={13} /> {active.type === "group" ? L.leaveChat : L.deleteChat}
+                  </button>
                 </div>
                 <div ref={scroller} style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
                   {messages.map((m) => (
