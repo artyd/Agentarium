@@ -1,3 +1,4 @@
+// Plain-JS seed (runs with `node` in the production image — no tsx/dev deps needed).
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
 
@@ -11,13 +12,10 @@ const ACHIEVEMENTS = [
 ];
 
 async function main() {
-  // Achievement definitions (not demo data — required lookup table).
   for (const a of ACHIEVEMENTS) {
     await prisma.achievement.upsert({ where: { code: a.code }, update: a, create: a });
   }
 
-  // Bootstrap member so the very first join request has someone to approve it.
-  // Idempotent; credentials come from env. Not demo/mock content.
   const nick = process.env.SEED_ADMIN_NICK;
   const pass = process.env.SEED_ADMIN_PASS;
   if (nick && pass) {
@@ -27,11 +25,12 @@ async function main() {
         data: { nickname: nick, passwordHash: await argon2.hash(pass), bio: "Founding member" },
       });
       console.log(`Seeded bootstrap member '${nick}'.`);
+    } else {
+      console.log(`Member '${nick}' already exists — skipping.`);
     }
   } else {
     console.log("SEED_ADMIN_NICK / SEED_ADMIN_PASS not set — skipping bootstrap member.");
   }
-
   console.log("Seed complete.");
 }
 
