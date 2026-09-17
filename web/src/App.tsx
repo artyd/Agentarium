@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth, useTheme } from "./store/providers";
+import { useAuth } from "./store/providers";
 import { useLang } from "./store/providers";
 import { AppShell } from "./components/AppShell";
 import { Welcome } from "./pages/Welcome";
@@ -17,11 +17,10 @@ import { Compose } from "./pages/Compose";
 
 export function App() {
   const { me, loading } = useAuth();
-  const { theme } = useTheme();
   const { L } = useLang();
 
   return (
-    <div className="app" data-theme={theme}>
+    <div className="app" data-theme="light">
       {loading ? (
         <div className="center-screen">
           <span className="spin" />

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, useLang, useTheme } from "../store/providers";
+import { useAuth, useLang } from "../store/providers";
 import { Icon } from "../icons/Icon";
 import { Avatar } from "./Avatar";
 
@@ -8,7 +8,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav = useNavigate();
   const { me, logout } = useAuth();
   const { lang, setLang, L } = useLang();
-  const { theme, toggle } = useTheme();
   const [q, setQ] = useState("");
   const [menu, setMenu] = useState(false);
 
@@ -40,7 +39,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>@{me?.nickname}</div>
                 </div>
                 <div className="com" onClick={() => { setMenu(false); nav(`/profile/${me?.nickname}`); }}><Icon name="user" /> {L.myProfile}</div>
-                <div className="com" onClick={() => { toggle(); }}><Icon name={theme === "light" ? "moon" : "sun"} /> {theme === "light" ? "Dark" : "Light"}</div>
                 <div className="com" onClick={async () => { setMenu(false); await logout(); nav("/"); }}><Icon name="logout" /> {L.logout}</div>
               </div>
             )}

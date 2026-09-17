@@ -18,15 +18,10 @@ type LangCtx = { lang: Lang; setLang: (l: Lang) => void; L: Record<string, strin
 const LangContext = createContext<LangCtx>(null!);
 export const useLang = () => useContext(LangContext);
 
-type ThemeCtx = { theme: "light" | "dark"; toggle: () => void };
-const ThemeContext = createContext<ThemeCtx>(null!);
-export const useTheme = () => useContext(ThemeContext);
-
 export function AppProviders({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [lang, setLangState] = useState<Lang>((localStorage.getItem("ag_lang") as Lang) || "ua");
-  const [theme, setTheme] = useState<"light" | "dark">((localStorage.getItem("ag_theme") as "light" | "dark") || "light");
 
   const refresh = async () => {
     try {
@@ -55,19 +50,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
     setMe(null);
   };
 
-  const toggle = () => {
-    setTheme((t) => {
-      const next = t === "light" ? "dark" : "light";
-      localStorage.setItem("ag_theme", next);
-      return next;
-    });
-  };
-
   return (
     <AuthContext.Provider value={{ me, loading, setMe, refresh, logout }}>
-      <LangContext.Provider value={{ lang, setLang, L: STRINGS[lang] }}>
-        <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>
-      </LangContext.Provider>
+      <LangContext.Provider value={{ lang, setLang, L: STRINGS[lang] }}>{children}</LangContext.Provider>
     </AuthContext.Provider>
   );
 }
