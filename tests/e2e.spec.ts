@@ -23,23 +23,48 @@ function attachErrorCollector(page: Page): string[] {
   return errors;
 }
 
+// The session is injected via storageState (see auth.setup.ts), so we don't submit
+// the login form here — that would hammer the 10/min login rate-limit and make the
+// last tests fail spuriously. We just land on the authenticated app shell.
 async function login(page: Page) {
   await page.goto("/");
-  await page.getByPlaceholder("ada.lovelace").fill(USER);
-  await page.getByPlaceholder("••••••••").fill(PASS);
-  await page.locator("button.btnp.block").click();
   await expect(page.locator(".applayout")).toBeVisible({ timeout: 15000 });
   // dismiss the "while you were away" modal if it appears on entry
   await page.waitForTimeout(400);
   await page.keyboard.press("Escape").catch(() => {});
 }
 
-test("welcome page renders with no errors", async ({ page }) => {
-  const errors = attachErrorCollector(page);
-  await page.goto("/");
-  await expect(page.getByPlaceholder("ada.lovelace")).toBeVisible();
-  await page.waitForTimeout(1000);
-  expect(errors, errors.join("\n")).toEqual([]);
+// These run WITHOUT the injected session so we can exercise the welcome/login UI.
+test.describe("unauthenticated", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("welcome page renders with no errors", async ({ page }) => {
+    const errors = attachErrorCollector(page);
+    await page.goto("/");
+    await expect(page.getByPlaceholder("ada.lovelace")).toBeVisible();
+    await page.waitForTimeout(1000);
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+
+  test("login via the UI form works", async ({ page }) => {
+    test.skip(!PASS, "AG_PASS not provided");
+    await page.goto("/");
+    await page.getByPlaceholder("ada.lovelace").fill(USER);
+    await page.getByPlaceholder("••••••••").fill(PASS);
+    await page.locator("button.btnp.block").click();
+    await expect(page.locator(".applayout")).toBeVisible({ timeout: 15000 });
+  });
+
+  test("wrong password shows a credentials error, not a rate-limit lie", async ({ page }) => {
+    test.skip(!PASS, "AG_PASS not provided");
+    await page.goto("/");
+    await page.getByPlaceholder("ada.lovelace").fill(USER);
+    await page.getByPlaceholder("••••••••").fill("definitely-wrong-" + Date.now());
+    await page.locator("button.btnp.block").click();
+    // must report bad credentials (UA/EN) and must NOT drop into the app
+    await expect(page.getByText(/Невірний нікнейм або пароль|Invalid nickname or password/)).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".applayout")).toHaveCount(0);
+  });
 });
 
 test("walk all authed screens with no console/JS/API errors", async ({ page }) => {
@@ -87,9 +112,7 @@ test("create a post via UI, verify it appears, then clean up", async ({ page, re
   // should land on the post detail page and show the title
   await expect(page.getByText("bug-hunt " + marker)).toBeVisible({ timeout: 15000 });
 
-  // cleanup via API (login through request context)
-  const jar = await request.post("/api/auth/login", { data: { nickname: USER, password: PASS }, headers: { Origin: process.env.AG_URL || "https://agentarium.alliancegroup95.com" } });
-  expect(jar.ok()).toBeTruthy();
+  // cleanup via API — the request context is already authenticated via storageState
   const feed = await (await request.get("/api/posts")).json();
   const mine = feed.posts.find((p: any) => (p.title || "").includes(marker));
   if (mine) await request.delete(`/api/posts/${mine.id}`, { headers: { Origin: process.env.AG_URL || "https://agentarium.alliancegroup95.com" } });
@@ -147,8 +170,7 @@ test("interactions: community tabs, comment, profile save/revert", async ({ page
   await page.waitForTimeout(1000);
   await expect(page.getByText("bio " + marker)).toBeVisible();
 
-  // cleanup via API
-  await request.post("/api/auth/login", { data: { nickname: USER, password: PASS }, headers: { Origin: BASE } });
+  // cleanup via API — request context already authenticated via storageState
   await request.put("/api/profile", { data: { bio: origBio }, headers: { Origin: BASE } });
   const feed = await (await request.get("/api/posts")).json();
   const mine = feed.posts.find((p: any) => (p.title || "").includes(marker));
@@ -173,7 +195,6 @@ test("share modal opens from the feed", async ({ page }) => {
 
 test("long post truncated in feed, full on detail", async ({ page, request }) => {
   test.skip(!PASS, "AG_PASS not provided");
-  await request.post("/api/auth/login", { data: { nickname: USER, password: PASS }, headers: { Origin: BASE } });
   const marker = "trunc-" + Date.now();
   const created = await (await request.post("/api/posts", { data: { type: "thought", title: marker, bodyHtml: "<p>" + "L".repeat(300) + "</p>" }, headers: { Origin: BASE } })).json();
   const pid = created.post.id;
@@ -196,7 +217,6 @@ test("long post truncated in feed, full on detail", async ({ page, request }) =>
 
 test("long code snippet truncated in feed, full on detail", async ({ page, request }) => {
   test.skip(!PASS, "AG_PASS not provided");
-  await request.post("/api/auth/login", { data: { nickname: USER, password: PASS }, headers: { Origin: BASE } });
   const marker = "code-" + Date.now();
   const code = Array.from({ length: 20 }, (_, i) => `line ${i} XX`).join("\n");
   const created = await (await request.post("/api/posts", { data: { type: "project", title: marker, bodyHtml: "<p>x</p>", codeSnippet: code }, headers: { Origin: BASE } })).json();

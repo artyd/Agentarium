@@ -29,6 +29,8 @@ export function Welcome() {
     } catch (e) {
       const err = e as Error & { status?: number };
       if (err.status === 409) setError(lang === "ua" ? "Нікнейм зайнято" : "Nickname taken");
+      else if (err.status === 429) setError(lang === "ua" ? "Забагато спроб. Спробуйте за хвилину." : "Too many attempts. Try again in a minute.");
+      else if (err.status && err.status >= 500) setError(lang === "ua" ? "Помилка сервера. Спробуйте пізніше." : "Server error. Please try again later.");
       else if (mode === "register") setError(lang === "ua" ? "Не вдалося зареєструватися" : "Registration failed");
       else setError(lang === "ua" ? "Невірний нікнейм або пароль" : "Invalid nickname or password");
     }
