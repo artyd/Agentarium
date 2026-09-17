@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { PostDTO } from "../api/types";
+import { ShareModal } from "./ShareModal";
 import { useAuth, useLang } from "../store/providers";
 import { timeAgo } from "../store/utils";
 import { typeLabel, TYPE_ICON } from "../i18n/strings";
@@ -17,6 +18,7 @@ export function PostCard({ post }: { post: PostDTO }) {
   const [myFire, setMyFire] = useState(post.myFire);
   const [menu, setMenu] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [share, setShare] = useState(false);
   const typeClass = `t-${post.type}`;
   const isAuthor = me?.id === post.author.id;
 
@@ -106,10 +108,11 @@ export function PostCard({ post }: { post: PostDTO }) {
         </div>
         <span className="act" onClick={() => nav(`/post/${post.id}`)}><Icon name="comment" size={14} /> {post.commentCount}</span>
         <span className={`act ${myFire ? "on" : ""}`} onClick={toggleFire}>🔥 {fire}</span>
-        <span className="act" style={{ marginLeft: "auto" }} onClick={() => navigator.clipboard?.writeText(`${location.origin}/post/${post.id}`)}>
+        <span className="act" style={{ marginLeft: "auto" }} onClick={() => setShare(true)}>
           <Icon name="share" size={13} /> {L.share}
         </span>
       </div>
+      {share && <ShareModal post={post} onClose={() => setShare(false)} />}
     </article>
   );
 }

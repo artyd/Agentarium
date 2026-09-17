@@ -7,6 +7,7 @@ import { Breadcrumbs } from "../components/Breadcrumbs";
 import { Avatar } from "../components/Avatar";
 import { RichEditor } from "../components/RichEditor";
 import { CommentRow } from "../components/CommentRow";
+import { ShareModal } from "../components/ShareModal";
 import { Icon } from "../icons/Icon";
 import { useAuth, useLang } from "../store/providers";
 import { timeAgo } from "../store/utils";
@@ -37,6 +38,7 @@ export function PostDetail() {
   const [eBody, setEBody] = useState("");
   const [eCode, setECode] = useState("");
   const [eLink, setELink] = useState("");
+  const [share, setShare] = useState(false);
 
   useEffect(() => {
     api.get<{ post: PostDTO; comments: CommentDTO[] }>(`/posts/${id}`).then((r) => {
@@ -158,10 +160,12 @@ export function PostDetail() {
               </div>
               <span className="act"><Icon name="comment" size={14} /> {comments.length}</span>
               <span className={`act ${myFire ? "on" : ""}`} onClick={toggleFire}>🔥 {fire}</span>
+              <span className="act" style={{ marginLeft: "auto" }} onClick={() => setShare(true)}><Icon name="share" size={13} /> {L.share}</span>
             </div>
           </>
         )}
       </article>
+      {share && <ShareModal post={post} onClose={() => setShare(false)} />}
 
       <div style={{ marginTop: 22 }}>
         <h3 className="fk" style={{ fontWeight: 600, fontSize: 18, margin: "0 0 14px" }}>{L.comments} · {comments.length}</h3>

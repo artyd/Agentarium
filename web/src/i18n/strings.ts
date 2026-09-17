@@ -115,6 +115,13 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     edited: "змінено",
     deleted: "повідомлення видалено",
     linkPlaceholder: "https://… або @нік",
+    copyLink: "Копіювати",
+    copied: "Скопійовано!",
+    sent: "Надіслано",
+    send2: "Надіслати",
+    shareToFriend: "Надіслати другу в чат",
+    shareOther: "Поділитися…",
+    noFriendsToShare: "Немає друзів або чатів",
   },
   en: {
     heroKicker: "A private guild for agent builders",
@@ -229,6 +236,13 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     edited: "edited",
     deleted: "message deleted",
     linkPlaceholder: "https://… or @handle",
+    copyLink: "Copy",
+    copied: "Copied!",
+    sent: "Sent",
+    send2: "Send",
+    shareToFriend: "Send to a friend's chat",
+    shareOther: "Share…",
+    noFriendsToShare: "No friends or chats yet",
   },
 };
 
