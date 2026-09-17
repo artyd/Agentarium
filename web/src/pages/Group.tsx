@@ -6,7 +6,7 @@ import { Layout } from "../components/Layout";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { PostCard } from "../components/PostCard";
 import { Icon } from "../icons/Icon";
-import { useAuth, useLang } from "../store/providers";
+import { useAuth, useCompose, useLang } from "../store/providers";
 import { timeAgo, avatarColor } from "../store/utils";
 
 type CommunityView = {
@@ -19,6 +19,7 @@ export function Group() {
   const nav = useNavigate();
   const { L, lang } = useLang();
   const { me } = useAuth();
+  const { openCompose } = useCompose();
   const [c, setC] = useState<CommunityView | null>(null);
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [posts, setPosts] = useState<PostDTO[]>([]);
@@ -88,7 +89,7 @@ export function Group() {
         <span className={`tab ${tab === "threads" ? "on" : ""}`} onClick={() => setTab("threads")}>{L.threads}</span>
         <div style={{ marginLeft: "auto" }}>
           {tab === "posts"
-            ? c.isMember && <button className="btnp" style={{ padding: "8px 16px" }} onClick={() => nav(`/compose?community=${c.slug}`)}>＋ {L.newPost}</button>
+            ? c.isMember && <button className="btnp" style={{ padding: "8px 16px" }} onClick={() => openCompose(c.slug)}>＋ {L.newPost}</button>
             : c.isMember && <button className="btnp" style={{ padding: "8px 16px" }} onClick={() => setOpen((v) => !v)}>＋ {L.newThread}</button>}
         </div>
       </div>

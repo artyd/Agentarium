@@ -14,8 +14,9 @@ import { Thread } from "./pages/Thread";
 import { Friends } from "./pages/Friends";
 import { Search } from "./pages/Search";
 import { Requests } from "./pages/Requests";
-import { Compose } from "./pages/Compose";
 import { Settings } from "./pages/Settings";
+import { ComposeModal } from "./components/ComposeModal";
+import { WelcomeBackModal } from "./components/WelcomeBackModal";
 
 export function App() {
   const { me, loading } = useAuth();
@@ -62,11 +63,12 @@ export function App() {
             <Route path="/friends" element={<Friends />} />
             <Route path="/search" element={<Search />} />
             <Route path="/requests" element={<Requests />} />
-            <Route path="/compose" element={<Compose />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/onboard" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <ComposeModal />
+          <WelcomeBackModal />
         </AppShell>
       )}
     </div>

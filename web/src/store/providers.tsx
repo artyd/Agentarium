@@ -18,10 +18,16 @@ type LangCtx = { lang: Lang; setLang: (l: Lang) => void; L: Record<string, strin
 const LangContext = createContext<LangCtx>(null!);
 export const useLang = () => useContext(LangContext);
 
+type ComposeCtx = { open: boolean; community: string | null; openCompose: (slug?: string) => void; closeCompose: () => void };
+const ComposeContext = createContext<ComposeCtx>(null!);
+export const useCompose = () => useContext(ComposeContext);
+
 export function AppProviders({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [lang, setLangState] = useState<Lang>((localStorage.getItem("ag_lang") as Lang) || "ua");
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeCommunity, setComposeCommunity] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
@@ -50,9 +56,16 @@ export function AppProviders({ children }: { children: ReactNode }) {
     setMe(null);
   };
 
+  const openCompose = (slug?: string) => { setComposeCommunity(slug ?? null); setComposeOpen(true); };
+  const closeCompose = () => setComposeOpen(false);
+
   return (
     <AuthContext.Provider value={{ me, loading, setMe, refresh, logout }}>
-      <LangContext.Provider value={{ lang, setLang, L: STRINGS[lang] }}>{children}</LangContext.Provider>
+      <LangContext.Provider value={{ lang, setLang, L: STRINGS[lang] }}>
+        <ComposeContext.Provider value={{ open: composeOpen, community: composeCommunity, openCompose, closeCompose }}>
+          {children}
+        </ComposeContext.Provider>
+      </LangContext.Provider>
     </AuthContext.Provider>
   );
 }

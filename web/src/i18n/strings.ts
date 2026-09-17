@@ -161,6 +161,9 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     notif_friend_accept: "прийняв(ла) вашу заявку в друзі",
     notif_community_invite: "запросив(ла) вас до спільноти",
     notif_join_request: "нова заявка на вступ",
+    whileAway: "Поки вас не було",
+    viewRequests: "Переглянути запити",
+    close: "Закрити",
   },
   en: {
     heroKicker: "A private guild for agent builders",
@@ -321,6 +324,9 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     notif_friend_accept: "accepted your friend request",
     notif_community_invite: "invited you to a community",
     notif_join_request: "new join request",
+    whileAway: "While you were away",
+    viewRequests: "View requests",
+    close: "Close",
   },
 };
 

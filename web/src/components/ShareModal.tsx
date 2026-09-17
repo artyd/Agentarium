@@ -5,6 +5,7 @@ import type { ChatListItem, PublicUser } from "../api/types";
 import { useLang } from "../store/providers";
 import { Icon } from "../icons/Icon";
 import { Avatar } from "./Avatar";
+import { Modal } from "./Modal";
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
@@ -43,12 +44,11 @@ export function ShareModal({ post, onClose }: { post: { id: string; title: strin
     setSentKey("c" + c.id);
   }
 
-  const overlay: React.CSSProperties = { position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 };
   const canNative = typeof (navigator as Navigator & { share?: unknown }).share === "function";
 
   return (
-    <div className="agback" style={overlay} onClick={onClose}>
-      <div className="chunk agmodal" style={{ width: "100%", maxWidth: 440, padding: "20px 22px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={onClose} width={440}>
+      <div style={{ padding: "20px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
           <h3 className="fk" style={{ fontWeight: 600, fontSize: 20, flex: 1 }}>{L.share}</h3>
           <button className="btng" style={{ padding: "6px 10px", boxShadow: "none" }} onClick={onClose}><Icon name="x" size={13} /></button>
@@ -96,6 +96,6 @@ export function ShareModal({ post, onClose }: { post: { id: string; title: strin
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { getSocket } from "../api/socket";
-import { useLang } from "../store/providers";
+import { useCompose, useLang } from "../store/providers";
 import { Icon } from "../icons/Icon";
 
 type Mode = "feed" | "page";
@@ -21,6 +21,7 @@ export function Layout({
   const nav = useNavigate();
   const loc = useLocation();
   const { L } = useLang();
+  const { openCompose } = useCompose();
   const [unread, setUnread] = useState(0);
   const [requests, setRequests] = useState(0);
 
@@ -61,7 +62,7 @@ export function Layout({
             )}
           </div>
         </div>
-        <button className="btng block" style={{ margin: "14px 0" }} onClick={() => nav("/compose")}>
+        <button className="btng block" style={{ margin: "14px 0" }} onClick={() => openCompose()}>
           <Icon name="pen" /> {L.newPost}
         </button>
         {leftExtra}
