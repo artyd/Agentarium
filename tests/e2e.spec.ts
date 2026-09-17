@@ -149,3 +149,17 @@ test("interactions: community tabs, comment, profile save/revert", async ({ page
 
   expect(errors, "Collected errors:\n" + errors.join("\n")).toEqual([]);
 });
+
+test("share modal opens from the feed", async ({ page }) => {
+  test.skip(!PASS, "AG_PASS not provided");
+  const errors = attachErrorCollector(page);
+  await login(page);
+  await page.goto("/");
+  await page.waitForTimeout(1200);
+  const shareBtn = page.locator(".act", { hasText: /Поділитися|Share/ }).first();
+  if (await shareBtn.count()) {
+    await shareBtn.click();
+    await expect(page.getByRole("button", { name: /Копіювати|Copy/ }).first()).toBeVisible({ timeout: 6000 });
+  }
+  expect(errors, errors.join("\n")).toEqual([]);
+});
