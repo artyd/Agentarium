@@ -186,3 +186,26 @@ test("long post truncated in feed, full on detail", async ({ page, request }) =>
 
   await request.delete(`/api/posts/${pid}`, { headers: { Origin: BASE } });
 });
+
+test("long code snippet truncated in feed, full on detail", async ({ page, request }) => {
+  test.skip(!PASS, "AG_PASS not provided");
+  await request.post("/api/auth/login", { data: { nickname: USER, password: PASS }, headers: { Origin: BASE } });
+  const marker = "code-" + Date.now();
+  const code = Array.from({ length: 20 }, (_, i) => `line ${i} XX`).join("\n");
+  const created = await (await request.post("/api/posts", { data: { type: "project", title: marker, bodyHtml: "<p>x</p>", codeSnippet: code }, headers: { Origin: BASE } })).json();
+  const pid = created.post.id;
+
+  await login(page);
+  await page.goto("/");
+  await page.waitForTimeout(1200);
+  const cardText = await page.locator("article.chunk").filter({ hasText: marker }).first().innerText();
+  expect(cardText).toContain("…");
+  expect((cardText.match(/line \d+/g) ?? []).length).toBeLessThan(20);
+
+  await page.goto(`/post/${pid}`);
+  await page.waitForTimeout(800);
+  const detailText = await page.locator("article.chunk").first().innerText();
+  expect((detailText.match(/line \d+/g) ?? []).length).toBe(20);
+
+  await request.delete(`/api/posts/${pid}`, { headers: { Origin: BASE } });
+});
