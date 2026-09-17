@@ -1,9 +1,9 @@
 import { prisma } from "./prisma.js";
 
-const NICK = "[A-Za-z0-9_.]{2,40}";
-const EXTRACT_RE = new RegExp(`@(${NICK})`, "g");
+const NICK = "[\\p{L}\\p{N}_.]{2,40}";
+const EXTRACT_RE = new RegExp(`@(${NICK})`, "gu");
 // Matches an HTML tag OR an @mention (so we only touch mentions in text, not attributes).
-const LINKIFY_RE = new RegExp(`(<[^>]+>)|@(${NICK})`, "g");
+const LINKIFY_RE = new RegExp(`(<[^>]+>)|@(${NICK})`, "gu");
 
 /** Unique candidate nicknames mentioned in a piece of text/HTML. */
 export function extractMentions(text: string): string[] {
