@@ -29,6 +29,9 @@ async function login(page: Page) {
   await page.getByPlaceholder("••••••••").fill(PASS);
   await page.locator("button.btnp.block").click();
   await expect(page.locator(".applayout")).toBeVisible({ timeout: 15000 });
+  // dismiss the "while you were away" modal if it appears on entry
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Escape").catch(() => {});
 }
 
 test("welcome page renders with no errors", async ({ page }) => {
@@ -44,7 +47,7 @@ test("walk all authed screens with no console/JS/API errors", async ({ page }) =
   const errors = attachErrorCollector(page);
   await login(page);
 
-  const routes = ["/", "/communities", "/friends", "/requests", "/search?q=a", `/profile/${USER}`, "/compose", "/settings"];
+  const routes = ["/", "/explore", "/communities", "/friends", "/requests", "/search?q=a", `/profile/${USER}`, "/settings"];
   for (const r of routes) {
     await page.goto(r);
     await page.waitForTimeout(1200);
@@ -69,9 +72,11 @@ test("create a post via UI, verify it appears, then clean up", async ({ page, re
   await login(page);
 
   const marker = "e2e-" + Date.now();
-  await page.goto("/compose");
-  await page.waitForTimeout(800);
-  // title editor (first .rte), then body editor (second .rte)
+  await page.goto("/");
+  await page.waitForTimeout(600);
+  await page.getByRole("button", { name: /Новий пост|New post/ }).first().click();
+  await page.waitForTimeout(500);
+  // title editor (first .rte), then body editor (second .rte) in the compose modal
   const editors = page.locator(".rte");
   await editors.nth(0).click();
   await editors.nth(0).type("bug-hunt " + marker);
@@ -115,8 +120,10 @@ test("interactions: community tabs, comment, profile save/revert", async ({ page
 
   // create a post then comment on it
   const marker = "e2e2-" + Date.now();
-  await page.goto("/compose");
+  await page.goto("/");
   await page.waitForTimeout(600);
+  await page.getByRole("button", { name: /Новий пост|New post/ }).first().click();
+  await page.waitForTimeout(500);
   const eds = page.locator(".rte");
   await eds.nth(0).click();
   await eds.nth(0).type("cm " + marker);
