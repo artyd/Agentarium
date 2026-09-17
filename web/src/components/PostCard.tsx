@@ -59,6 +59,22 @@ export function PostCard({ post }: { post: PostDTO }) {
     truncated = true;
   }
 
+  // Feed shows only the first few lines / ~400 chars of code; full code is on the post page.
+  const CODE_LINES = 6;
+  const CODE_CHARS = 400;
+  let codePreview = post.codeSnippet ?? "";
+  let codeTruncated = false;
+  if (codePreview) {
+    const lines = codePreview.split("\n");
+    if (lines.length > CODE_LINES) {
+      codePreview = lines.slice(0, CODE_LINES).join("\n") + "\n…";
+      codeTruncated = true;
+    } else if (codePreview.length > CODE_CHARS) {
+      codePreview = codePreview.slice(0, CODE_CHARS) + "\n…";
+      codeTruncated = true;
+    }
+  }
+
   return (
     <article className="chunk" style={{ padding: "18px 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
@@ -103,7 +119,14 @@ export function PostCard({ post }: { post: PostDTO }) {
           {truncated && <> <span className="link" onClick={() => nav(`/post/${post.id}`)}>{L.readMore}</span></>}
         </p>
       )}
-      {post.codeSnippet && <pre className="codeblk" style={{ margin: "0 0 14px" }}>{post.codeSnippet}</pre>}
+      {post.codeSnippet && (
+        <pre className="codeblk" style={{ margin: "0 0 14px" }}>
+          {codePreview}
+          {codeTruncated && (
+            <>{"\n"}<span className="link" style={{ color: "#b3a6ff" }} onClick={() => nav(`/post/${post.id}`)}>{L.readMore}</span></>
+          )}
+        </pre>
+      )}
       {post.link && (
         <div className="hoverrow" style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 13px", margin: "0 0 14px", border: "var(--sw) solid var(--stroke)" }} onClick={() => window.open(post.link!.url, "_blank")}>
           <div className="sticker" style={{ width: 38, height: 38, background: "var(--acsoft)", color: "var(--ac)" }}>
