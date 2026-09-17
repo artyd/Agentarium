@@ -1,0 +1,7 @@
+# Host-level reverse proxy for Agentarium.
+# Caddy auto-provisions TLS via Let's Encrypt for the domain below.
+agentarium.alliancegroup95.com {
+    encode gzip zstd
+    # WebSocket + HTTP both proxy to the app container on 8016.
+    reverse_proxy 127.0.0.1:8016
+}
