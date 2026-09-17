@@ -59,9 +59,7 @@ export function PostCard({ post }: { post: PostDTO }) {
           </div>
         </div>
       </div>
-      <h3 className="link" style={{ fontWeight: 600, fontSize: 21, lineHeight: 1.24, margin: "0 0 8px", color: "var(--text)" }} onClick={() => nav(`/post/${post.id}`)}>
-        {post.title}
-      </h3>
+      <h3 className="link" style={{ fontWeight: 600, fontSize: 21, lineHeight: 1.24, margin: "0 0 8px", color: "var(--text)" }} onClick={() => nav(`/post/${post.id}`)} dangerouslySetInnerHTML={{ __html: post.title }} />
       {post.bodyHtml && (
         <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 14px", fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />
       )}

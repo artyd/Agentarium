@@ -5,9 +5,12 @@ import type { CommentDTO, PublicUser } from "../api/types";
 import { Layout } from "../components/Layout";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { Avatar } from "../components/Avatar";
+import { RichEditor } from "../components/RichEditor";
 import { Icon } from "../icons/Icon";
 import { useAuth, useLang } from "../store/providers";
 import { timeAgo } from "../store/utils";
+
+const stripTags = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
 type ThreadView = { id: string; title: string; author: PublicUser; community: { slug: string; title: string }; createdAt: string };
 
@@ -18,15 +21,17 @@ export function Thread() {
   const [t, setT] = useState<ThreadView | null>(null);
   const [comments, setComments] = useState<CommentDTO[]>([]);
   const [text, setText] = useState("");
+  const [commentKey, setCommentKey] = useState(0);
 
   const load = () => api.get<{ thread: ThreadView; comments: CommentDTO[] }>(`/threads/${id}`).then((r) => { setT(r.thread); setComments(r.comments); });
   useEffect(() => { load(); }, [id]);
 
   async function submit() {
-    if (!text.trim()) return;
+    if (!stripTags(text)) return;
     const r = await api.post<{ comment: CommentDTO }>(`/threads/${id}/comments`, { bodyHtml: text });
     setComments((cs) => [...cs, r.comment]);
     setText("");
+    setCommentKey((k) => k + 1);
   }
 
   if (!t) return <Layout mode="feed"><div style={{ padding: 40, textAlign: "center" }}><span className="spin" /></div></Layout>;
@@ -40,10 +45,14 @@ export function Thread() {
       </div>
 
       {me && (
-        <div className="chunk" style={{ padding: "10px 14px", marginBottom: 18, display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="chunk" style={{ padding: "12px 14px", marginBottom: 18, display: "flex", gap: 10, alignItems: "flex-start" }}>
           <Avatar nickname={me.nickname} avatarUrl={me.avatarUrl} size={36} color="var(--ac)" />
-          <input className="finput" value={text} onChange={(e) => setText(e.target.value)} placeholder={L.writeComment} style={{ flex: 1, borderWidth: 0, padding: "8px 4px", background: "transparent" }} onKeyDown={(e) => e.key === "Enter" && submit()} />
-          <button className="av" style={{ width: 38, height: 38, background: "var(--ac)", cursor: "pointer", border: 0, flex: "none" }} onClick={submit}><Icon name="paperplane" size={16} style={{ color: "var(--ac-ink)" }} /></button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <RichEditor key={commentKey} value={text} onChange={setText} placeholder={L.writeComment} dense minHeight={60} onSubmit={submit} />
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+              <button className="btnp" style={{ padding: "8px 18px" }} onClick={submit}><Icon name="paperplane" size={14} /> {L.send}</button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -5,10 +5,13 @@ import type { PostDTO, CommentDTO } from "../api/types";
 import { Layout } from "../components/Layout";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { Avatar } from "../components/Avatar";
+import { RichEditor } from "../components/RichEditor";
 import { Icon } from "../icons/Icon";
 import { useAuth, useLang } from "../store/providers";
 import { timeAgo } from "../store/utils";
 import { typeLabel, TYPE_ICON } from "../i18n/strings";
+
+const stripTags = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
 function CommentItem({ c, postId, onReplied }: { c: CommentDTO; postId: string; onReplied: (parentId: string, reply: CommentDTO) => void }) {
   const { L } = useLang();
@@ -23,7 +26,7 @@ function CommentItem({ c, postId, onReplied }: { c: CommentDTO; postId: string; 
     setScore(r.score);
   }
   async function submitReply() {
-    if (!text.trim()) return;
+    if (!stripTags(text)) return;
     // reply belongs to the same post; find postId via parent chain is not needed — server infers from post route
     const r = await api.post<{ comment: CommentDTO }>(`/posts/${postId}/comments`, { bodyHtml: text, parentCommentId: c.id });
     onReplied(c.id, r.comment);
@@ -58,9 +61,11 @@ function CommentItem({ c, postId, onReplied }: { c: CommentDTO; postId: string; 
         </div>
       ))}
       {replying && (
-        <div style={{ margin: "12px 0 0 42px", display: "flex", gap: 8 }}>
-          <input className="finput" value={text} onChange={(e) => setText(e.target.value)} placeholder={`${L.reply}…`} onKeyDown={(e) => e.key === "Enter" && submitReply()} />
-          <button className="btnp" style={{ padding: "8px 16px" }} onClick={submitReply}>{L.send}</button>
+        <div style={{ margin: "12px 0 0 42px" }}>
+          <RichEditor value={text} onChange={setText} placeholder={`${L.reply}…`} dense minHeight={56} onSubmit={submitReply} />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+            <button className="btnp" style={{ padding: "8px 16px" }} onClick={submitReply}>{L.send}</button>
+          </div>
         </div>
       )}
     </div>
@@ -75,6 +80,7 @@ export function PostDetail() {
   const [post, setPost] = useState<PostDTO | null>(null);
   const [comments, setComments] = useState<CommentDTO[]>([]);
   const [text, setText] = useState("");
+  const [commentKey, setCommentKey] = useState(0);
   const [score, setScore] = useState(0);
   const [myVote, setMyVote] = useState(0);
   const [fire, setFire] = useState(0);
@@ -102,10 +108,11 @@ export function PostDetail() {
     setFire(r.fire); setMyFire(r.myFire);
   }
   async function submitComment() {
-    if (!text.trim()) return;
+    if (!stripTags(text)) return;
     const r = await api.post<{ comment: CommentDTO }>(`/posts/${id}/comments`, { bodyHtml: text });
     setComments((cs) => [...cs, r.comment]);
     setText("");
+    setCommentKey((k) => k + 1);
   }
   function onReplied(parentId: string, reply: CommentDTO) {
     setComments((cs) => cs.map((c) => (c.id === parentId ? { ...c, replies: [...c.replies, reply] } : c)));
@@ -137,7 +144,7 @@ export function PostDetail() {
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--faint)" }}>{post.community && <>a/{post.community.slug} · </>}{timeAgo(post.createdAt, lang)}</div>
           </div>
         </div>
-        <h1 style={{ fontWeight: 700, fontSize: 32, lineHeight: 1.15, margin: "0 0 16px" }}>{post.title}</h1>
+        <h1 style={{ fontWeight: 700, fontSize: 32, lineHeight: 1.15, margin: "0 0 16px" }} dangerouslySetInnerHTML={{ __html: post.title }} />
         {post.bodyHtml && <div style={{ fontSize: 15.5, lineHeight: 1.75, color: "var(--text)", marginBottom: 16, fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />}
         {post.codeSnippet && <pre className="codeblk" style={{ margin: "0 0 16px" }}>{post.codeSnippet}</pre>}
         {post.link && (
@@ -161,10 +168,14 @@ export function PostDetail() {
       <div style={{ marginTop: 22 }}>
         <h3 className="fk" style={{ fontWeight: 600, fontSize: 18, margin: "0 0 14px" }}>{L.comments} · {comments.length}</h3>
         {me && (
-          <div className="chunk" style={{ padding: "10px 14px", marginBottom: 18, display: "flex", gap: 10, alignItems: "center" }}>
+          <div className="chunk" style={{ padding: "12px 14px", marginBottom: 18, display: "flex", gap: 10, alignItems: "flex-start" }}>
             <Avatar nickname={me.nickname} avatarUrl={me.avatarUrl} size={36} color="var(--ac)" />
-            <input className="finput" value={text} onChange={(e) => setText(e.target.value)} placeholder={L.writeComment} style={{ flex: 1, borderWidth: 0, padding: "8px 4px", background: "transparent" }} onKeyDown={(e) => e.key === "Enter" && submitComment()} />
-            <button className="av" style={{ width: 38, height: 38, background: "var(--ac)", cursor: "pointer", border: 0, flex: "none" }} onClick={submitComment}><Icon name="paperplane" size={16} style={{ color: "var(--ac-ink)" }} /></button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <RichEditor key={commentKey} value={text} onChange={setText} placeholder={L.writeComment} dense minHeight={60} onSubmit={submitComment} />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <button className="btnp" style={{ padding: "8px 18px" }} onClick={submitComment}><Icon name="paperplane" size={14} /> {L.send}</button>
+              </div>
+            </div>
           </div>
         )}
         {comments.map((c) => <CommentItem key={c.id} c={c} postId={id!} onReplied={onReplied} />)}

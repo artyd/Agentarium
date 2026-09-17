@@ -1,18 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { CommunityListItem, PostDTO } from "../api/types";
 import { Layout } from "../components/Layout";
+import { RichEditor } from "../components/RichEditor";
 import { Icon } from "../icons/Icon";
 import { useLang } from "../store/providers";
 import { POST_TYPES, typeLabel, TYPE_ICON } from "../i18n/strings";
 
+const stripTags = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+
 export function Compose() {
   const nav = useNavigate();
   const { L } = useLang();
-  const editor = useRef<HTMLDivElement>(null);
   const [type, setType] = useState<string>("thought");
-  const [title, setTitle] = useState("");
+  const [titleHtml, setTitleHtml] = useState("");
+  const [bodyHtml, setBodyHtml] = useState("");
   const [code, setCode] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [communityId, setCommunityId] = useState("");
@@ -24,28 +27,14 @@ export function Compose() {
     api.get<{ communities: CommunityListItem[] }>("/communities").then((r) => setCommunities(r.communities.filter((c) => c.isMember)));
   }, []);
 
-  function exec(cmd: string) {
-    document.execCommand(cmd);
-    editor.current?.focus();
-  }
-  function insertLink() {
-    const url = prompt("URL:");
-    if (url) document.execCommand("createLink", false, url);
-  }
-  function insertImage() {
-    const url = prompt("Image URL:");
-    if (url) document.execCommand("insertImage", false, url);
-  }
-
   async function publish() {
     setError("");
-    if (!title.trim()) { setError(L.title); return; }
+    if (!stripTags(titleHtml)) { setError(L.title); return; }
     setBusy(true);
     try {
-      const bodyHtml = editor.current?.innerHTML ?? "";
       const { post } = await api.post<{ post: PostDTO }>("/posts", {
         type,
-        title,
+        title: titleHtml,
         bodyHtml,
         codeSnippet: code.trim() || null,
         linkUrl: linkUrl.trim() || null,
@@ -72,17 +61,14 @@ export function Compose() {
           ))}
         </div>
 
-        <div className="field2"><label>{L.title}</label><input className="finput" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={L.title} /></div>
+        <div className="field2">
+          <label>{L.title}</label>
+          <RichEditor value={titleHtml} onChange={setTitleHtml} placeholder={L.title} singleLine onSubmit={publish} />
+        </div>
 
         <div className="field2">
           <label>{L.body}</label>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            <button className="btng" style={{ padding: "6px 12px", fontWeight: 800 }} onMouseDown={(e) => { e.preventDefault(); exec("bold"); }}>B</button>
-            <button className="btng" style={{ padding: "6px 12px", fontStyle: "italic" }} onMouseDown={(e) => { e.preventDefault(); exec("italic"); }}>I</button>
-            <button className="btng" style={{ padding: "6px 12px" }} onMouseDown={(e) => { e.preventDefault(); insertLink(); }}><Icon name="link" size={13} /></button>
-            <button className="btng" style={{ padding: "6px 12px" }} onMouseDown={(e) => { e.preventDefault(); insertImage(); }}><Icon name="image" size={13} /></button>
-          </div>
-          <div ref={editor} className="finput rte" contentEditable data-ph={L.body} style={{ minHeight: 120 }} suppressContentEditableWarning />
+          <RichEditor value={bodyHtml} onChange={setBodyHtml} placeholder={L.body} minHeight={130} />
         </div>
 
         {(type === "agent" || type === "project" || type === "skill") && (

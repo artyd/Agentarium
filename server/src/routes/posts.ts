@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { cleanHtml, cleanText } from "../lib/sanitize.js";
+import { cleanHtml, cleanText, cleanInline } from "../lib/sanitize.js";
 import { requireAuth } from "../lib/session.js";
 import { postInclude, serializePost, nestComments, commentInclude } from "../lib/serialize.js";
 import { checkAchievements } from "../lib/achievements.js";
@@ -80,7 +80,7 @@ export default async function postRoutes(app: FastifyInstance) {
       data: {
         authorId: request.user!.id,
         type: d.type,
-        title: cleanText(d.title),
+        title: cleanInline(d.title),
         bodyHtml: cleanHtml(d.bodyHtml ?? ""),
         codeSnippet: d.codeSnippet ? cleanText(d.codeSnippet) : null,
         linkUrl: d.linkUrl ?? null,

@@ -1,4 +1,4 @@
-import { cleanHtml } from "./sanitize.js";
+import { cleanHtml, cleanInline } from "./sanitize.js";
 
 export type PublicUser = {
   id: string;
@@ -51,7 +51,7 @@ export function serializePost(p: PostRow, userId: string | null) {
   return {
     id: p.id,
     type: p.type,
-    title: p.title,
+    title: cleanInline(p.title),
     bodyHtml: cleanHtml(p.bodyHtml),
     codeSnippet: p.codeSnippet,
     link: p.linkUrl ? { url: p.linkUrl, title: p.linkTitle ?? p.linkUrl } : null,
