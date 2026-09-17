@@ -41,3 +41,17 @@
   display: grid;
   place-items: center;
 }
+
+/* Stronger "selected post type" state in Compose — the prototype's .typebtn.on
+   only tinted the background, which read as barely selected. Match the chip
+   pattern: accent fill + offset shadow so the choice is unmistakable. */
+.typebtn.on {
+  background: var(--ac);
+  color: var(--ac-ink);
+  border-color: var(--ac);
+  box-shadow: var(--shadow);
+}
+.typebtn.on .ic,
+.typebtn.on .ic svg {
+  color: var(--ac-ink);
+}
