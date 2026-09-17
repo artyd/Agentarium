@@ -61,3 +61,17 @@
   display: block;
   margin: 2px 0;
 }
+
+/* Compose modal: keep the whole form inside the viewport so it doesn't scroll.
+   Tighten the generic .field2 spacing and shrink the type-picker only here. */
+.compose-compact .field2 {
+  margin-bottom: 11px;
+}
+.compose-compact .typebtn {
+  padding: 8px 4px;
+  font-size: 12px;
+}
+.compose-compact .typebtn .ic svg {
+  width: 15px;
+  height: 15px;
+}

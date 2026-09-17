@@ -1,6 +1,10 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
-/** Centered modal dialog with a blurred, dimmed backdrop. Click-outside and Esc close. */
+/** Centered modal dialog with a blurred, dimmed backdrop. Click-outside and Esc close.
+ *  Rendered through a portal to <body> so it is never trapped inside a transformed
+ *  ancestor (e.g. `article.chunk:hover{transform:…}`), which would otherwise turn the
+ *  post card into the containing block for our `position:fixed` overlay. */
 export function Modal({ children, onClose, width = 460 }: { children: ReactNode; onClose: () => void; width?: number }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -10,7 +14,7 @@ export function Modal({ children, onClose, width = 460 }: { children: ReactNode;
     return () => { document.body.style.overflow = prev; document.removeEventListener("keydown", onKey); };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       className="agback"
       style={{
@@ -22,11 +26,12 @@ export function Modal({ children, onClose, width = 460 }: { children: ReactNode;
     >
       <div
         className="chunk agmodal"
-        style={{ width: "100%", maxWidth: width, maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box" }}
+        style={{ width: "100%", maxWidth: width, maxHeight: "92vh", overflowY: "auto", boxSizing: "border-box" }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
