@@ -19,9 +19,15 @@ const createSchema = z.object({
   communityId: z.string().optional().nullable(),
 });
 
-function hotScore(score: number, createdAt: string): number {
-  const ageHours = (Date.now() - new Date(createdAt).getTime()) / 3_600_000;
-  return score - ageHours / 12; // gentle time decay
+// Reddit "hot" ranking: log-scaled engagement + time. Fresh posts float up, but a
+// post with many upvotes/🔥 stays near the top for longer (each 10× engagement ≈
+// ~12.5h of extra staying power). engagement = (upvotes − downvotes) + 🔥 reactions.
+const REDDIT_EPOCH = 1_134_028_003; // seconds
+function hotScore(engagement: number, createdAt: string): number {
+  const order = Math.log10(Math.max(Math.abs(engagement), 1));
+  const sign = engagement > 0 ? 1 : engagement < 0 ? -1 : 0;
+  const seconds = new Date(createdAt).getTime() / 1000 - REDDIT_EPOCH;
+  return sign * order + seconds / 45_000;
 }
 
 export default async function postRoutes(app: FastifyInstance) {
@@ -43,8 +49,8 @@ export default async function postRoutes(app: FastifyInstance) {
 
     const sort = q.sort ?? "hot";
     if (sort === "new") posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    else if (sort === "top") posts.sort((a, b) => b.score - a.score);
-    else posts.sort((a, b) => hotScore(b.score, b.createdAt) - hotScore(a.score, a.createdAt));
+    else if (sort === "top") posts.sort((a, b) => b.score + b.fire - (a.score + a.fire));
+    else posts.sort((a, b) => hotScore(b.score + b.fire, b.createdAt) - hotScore(a.score + a.fire, a.createdAt));
 
     return { posts };
   });
