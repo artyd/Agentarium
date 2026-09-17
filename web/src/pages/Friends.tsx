@@ -23,6 +23,8 @@ export function Friends() {
   const [draft, setDraft] = useState("");
   const [inputKey, setInputKey] = useState(0);
   const [typingUser, setTypingUser] = useState<string | null>(null);
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editMsgText, setEditMsgText] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
 
   const loadChats = () => api.get<{ chats: ChatListItem[] }>("/chats").then((r) => setChats(r.chats));
@@ -45,10 +47,21 @@ export function Friends() {
         setTimeout(() => setTypingUser(null), 1800);
       }
     };
+    const onEdit = (p: { id: string; chatId: string; body: string }) => {
+      if (p.chatId === activeChat) setMessages((ms) => ms.map((m) => (m.id === p.id ? { ...m, body: p.body } : m)));
+    };
+    const onDelete = (p: { id: string; chatId: string }) => {
+      if (p.chatId === activeChat) setMessages((ms) => ms.filter((m) => m.id !== p.id));
+    };
     s.on("chat:message", onMsg);
     s.on("chat:typing", onTyping);
     s.on("chat:unread", loadChats);
-    return () => { s.off("chat:message", onMsg); s.off("chat:typing", onTyping); s.off("chat:unread", loadChats); };
+    s.on("chat:message:edit", onEdit);
+    s.on("chat:message:delete", onDelete);
+    return () => {
+      s.off("chat:message", onMsg); s.off("chat:typing", onTyping); s.off("chat:unread", loadChats);
+      s.off("chat:message:edit", onEdit); s.off("chat:message:delete", onDelete);
+    };
   }, [activeChat, me?.id, me?.nickname]);
 
   useEffect(() => { scroller.current?.scrollTo(0, scroller.current.scrollHeight); }, [messages]);
@@ -78,6 +91,16 @@ export function Friends() {
     getSocket().emit("chat:message", { chatId: activeChat, body: draft });
     setDraft("");
     setInputKey((k) => k + 1);
+  }
+  function startEditMsg(m: MessageDTO) { setEditingMsgId(m.id); setEditMsgText(m.body); }
+  function saveEditMsg() {
+    if (!editingMsgId || !stripTags(editMsgText)) { setEditingMsgId(null); return; }
+    getSocket().emit("chat:edit", { messageId: editingMsgId, body: editMsgText });
+    setEditingMsgId(null);
+  }
+  function deleteMsg(mid: string) {
+    if (!window.confirm(L.confirmDelete)) return;
+    getSocket().emit("chat:delete", { messageId: mid });
   }
 
   const active = useMemo(() => chats.find((c) => c.id === activeChat) ?? null, [chats, activeChat]);
@@ -143,7 +166,23 @@ export function Friends() {
                 <div ref={scroller} style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
                   {messages.map((m) => (
                     <div key={m.id} style={{ display: "flex", justifyContent: m.mine ? "flex-end" : "flex-start" }}>
-                      <div className={`bub2 ${m.mine ? "me" : "you"}`} dangerouslySetInnerHTML={{ __html: m.body }} />
+                      {editingMsgId === m.id ? (
+                        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", width: "80%" }}>
+                          <div style={{ flex: 1 }}><RichEditor value={editMsgText} singleLine dense onChange={setEditMsgText} onSubmit={saveEditMsg} /></div>
+                          <button className="btnp" style={{ padding: "8px 11px" }} onClick={saveEditMsg}><Icon name="check" size={13} /></button>
+                          <button className="btng" style={{ padding: "8px 11px" }} onClick={() => setEditingMsgId(null)}><Icon name="x" size={12} /></button>
+                        </div>
+                      ) : (
+                        <div style={{ maxWidth: "74%" }}>
+                          <div className={`bub2 ${m.mine ? "me" : "you"}`} dangerouslySetInnerHTML={{ __html: m.body }} />
+                          {m.mine && (
+                            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 3, opacity: 0.7 }}>
+                              <span className="link" style={{ fontSize: 11 }} onClick={() => startEditMsg(m)}>{L.edit}</span>
+                              <span className="link" style={{ fontSize: 11, color: "#e0554b" }} onClick={() => deleteMsg(m.id)}>{L.remove}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

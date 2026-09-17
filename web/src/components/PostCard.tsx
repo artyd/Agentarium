@@ -15,7 +15,17 @@ export function PostCard({ post }: { post: PostDTO }) {
   const [myVote, setMyVote] = useState(post.myVote);
   const [fire, setFire] = useState(post.fire);
   const [myFire, setMyFire] = useState(post.myFire);
+  const [menu, setMenu] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const typeClass = `t-${post.type}`;
+  const isAuthor = me?.id === post.author.id;
+
+  async function del() {
+    setMenu(false);
+    if (!window.confirm(L.confirmDelete)) return;
+    await api.del(`/posts/${post.id}`);
+    setDeleted(true);
+  }
 
   async function vote(dir: 1 | -1) {
     if (!me) return nav("/");
@@ -32,6 +42,7 @@ export function PostCard({ post }: { post: PostDTO }) {
   }
 
   const voteState = myVote === 1 ? "up" : myVote === -1 ? "dn" : "";
+  if (deleted) return null;
 
   return (
     <article className="chunk" style={{ padding: "18px 20px" }}>
@@ -58,6 +69,17 @@ export function PostCard({ post }: { post: PostDTO }) {
             {timeAgo(post.createdAt, lang)}
           </div>
         </div>
+        {isAuthor && (
+          <div style={{ position: "relative", flex: "none" }}>
+            <button className="btng" style={{ padding: "2px 10px", boxShadow: "none", fontSize: 18, lineHeight: 1 }} title={L.edit} onClick={() => setMenu((v) => !v)}>⋯</button>
+            {menu && (
+              <div className="chunk" style={{ position: "absolute", right: 0, top: 38, width: 170, padding: 6, zIndex: 30 }}>
+                <div className="com" onClick={() => { setMenu(false); nav(`/post/${post.id}?edit=1`); }}><Icon name="pen" size={13} /> {L.edit}</div>
+                <div className="com" style={{ color: "#e0554b" }} onClick={del}><Icon name="x" size={13} /> {L.remove}</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <h3 className="link" style={{ fontWeight: 600, fontSize: 21, lineHeight: 1.24, margin: "0 0 8px", color: "var(--text)" }} onClick={() => nav(`/post/${post.id}`)} dangerouslySetInnerHTML={{ __html: post.title }} />
       {post.bodyHtml && (

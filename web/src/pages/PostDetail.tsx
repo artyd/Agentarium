@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { PostDTO, CommentDTO } from "../api/types";
 import { Layout } from "../components/Layout";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { Avatar } from "../components/Avatar";
 import { RichEditor } from "../components/RichEditor";
+import { CommentRow } from "../components/CommentRow";
 import { Icon } from "../icons/Icon";
 import { useAuth, useLang } from "../store/providers";
 import { timeAgo } from "../store/utils";
@@ -13,68 +14,10 @@ import { typeLabel, TYPE_ICON } from "../i18n/strings";
 
 const stripTags = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
-function CommentItem({ c, postId, onReplied }: { c: CommentDTO; postId: string; onReplied: (parentId: string, reply: CommentDTO) => void }) {
-  const { L } = useLang();
-  const { me } = useAuth();
-  const [score, setScore] = useState(c.score);
-  const [replying, setReplying] = useState(false);
-  const [text, setText] = useState("");
-  const [collapsed, setCollapsed] = useState(false);
-
-  async function upvote() {
-    const r = await api.post<{ score: number }>(`/comments/${c.id}/vote`);
-    setScore(r.score);
-  }
-  async function submitReply() {
-    if (!stripTags(text)) return;
-    // reply belongs to the same post; find postId via parent chain is not needed — server infers from post route
-    const r = await api.post<{ comment: CommentDTO }>(`/posts/${postId}/comments`, { bodyHtml: text, parentCommentId: c.id });
-    onReplied(c.id, r.comment);
-    setText("");
-    setReplying(false);
-  }
-
-  return (
-    <div style={{ padding: "6px 0 14px", borderTop: "var(--sw) solid var(--stroke)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, paddingTop: 12 }}>
-        <Avatar nickname={c.author.nickname} avatarUrl={c.author.avatarUrl} size={32} />
-        <span className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{c.author.nickname}</span>
-        <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>· {score} ▲</span>
-        {c.replies.length > 0 && (
-          <span className="link" style={{ fontSize: 12, marginLeft: "auto" }} onClick={() => setCollapsed((v) => !v)}>
-            {collapsed ? `+${c.replies.length}` : "—"}
-          </span>
-        )}
-      </div>
-      <p style={{ fontSize: 14, lineHeight: 1.6, margin: "0 0 6px", paddingLeft: 42, color: "var(--text)", fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: c.bodyHtml }} />
-      <div style={{ paddingLeft: 42, display: "flex", gap: 14 }}>
-        <span className="link" style={{ fontSize: 12 }} onClick={upvote}>▲ {L.up}</span>
-        {me && <span className="link" style={{ fontSize: 12 }} onClick={() => setReplying((v) => !v)}>{L.reply}</span>}
-      </div>
-      {!collapsed && c.replies.map((rp) => (
-        <div key={rp.id} style={{ margin: "10px 0 0 42px", padding: "10px 0 0 16px", borderLeft: "var(--sw) solid var(--ac)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <Avatar nickname={rp.author.nickname} avatarUrl={rp.author.avatarUrl} size={26} color="var(--pink)" />
-            <span className="fk" style={{ fontWeight: 600, fontSize: 13 }}>{rp.author.nickname}</span>
-          </div>
-          <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, paddingLeft: 34, color: "var(--text)", fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: rp.bodyHtml }} />
-        </div>
-      ))}
-      {replying && (
-        <div style={{ margin: "12px 0 0 42px" }}>
-          <RichEditor value={text} onChange={setText} placeholder={`${L.reply}…`} dense minHeight={56} onSubmit={submitReply} />
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-            <button className="btnp" style={{ padding: "8px 16px" }} onClick={submitReply}>{L.send}</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function PostDetail() {
   const { id } = useParams();
   const nav = useNavigate();
+  const [sp] = useSearchParams();
   const { L, lang } = useLang();
   const { me } = useAuth();
   const [post, setPost] = useState<PostDTO | null>(null);
@@ -85,18 +28,39 @@ export function PostDetail() {
   const [myVote, setMyVote] = useState(0);
   const [fire, setFire] = useState(0);
   const [myFire, setMyFire] = useState(false);
+  // reply
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  // post edit
+  const [pEdit, setPEdit] = useState(false);
+  const [eTitle, setETitle] = useState("");
+  const [eBody, setEBody] = useState("");
+  const [eCode, setECode] = useState("");
+  const [eLink, setELink] = useState("");
 
   useEffect(() => {
     api.get<{ post: PostDTO; comments: CommentDTO[] }>(`/posts/${id}`).then((r) => {
       setPost(r.post);
       setComments(r.comments);
       setScore(r.post.score); setMyVote(r.post.myVote); setFire(r.post.fire); setMyFire(r.post.myFire);
+      if (sp.get("edit") && r.post.author.id === me?.id) initEdit(r.post);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  function reloadComments() {
+    api.get<{ post: PostDTO; comments: CommentDTO[] }>(`/posts/${id}`).then((r) => setComments(r.comments));
+  }
+  function initEdit(p: PostDTO) {
+    setETitle(p.title); setEBody(p.bodyHtml); setECode(p.codeSnippet ?? ""); setELink(p.link?.url ?? "");
+    setPEdit(true);
+  }
 
   if (!post) return <Layout mode="feed"><div style={{ padding: 40, textAlign: "center" }}><span className="spin" /></div></Layout>;
 
   const typeClass = `t-${post.type}`;
+  const isAuthor = me?.id === post.author.id;
+
   async function vote(dir: 1 | -1) {
     const value = myVote === dir ? 0 : dir;
     setMyVote(value);
@@ -109,13 +73,25 @@ export function PostDetail() {
   }
   async function submitComment() {
     if (!stripTags(text)) return;
-    const r = await api.post<{ comment: CommentDTO }>(`/posts/${id}/comments`, { bodyHtml: text });
-    setComments((cs) => [...cs, r.comment]);
-    setText("");
-    setCommentKey((k) => k + 1);
+    await api.post(`/posts/${id}/comments`, { bodyHtml: text });
+    setText(""); setCommentKey((k) => k + 1); reloadComments();
   }
-  function onReplied(parentId: string, reply: CommentDTO) {
-    setComments((cs) => cs.map((c) => (c.id === parentId ? { ...c, replies: [...c.replies, reply] } : c)));
+  async function submitReply(parentId: string) {
+    if (!stripTags(replyText)) return;
+    await api.post(`/posts/${id}/comments`, { bodyHtml: replyText, parentCommentId: parentId });
+    setReplyText(""); setReplyingId(null); reloadComments();
+  }
+  async function savePost() {
+    if (!stripTags(eTitle)) return;
+    const { post: up } = await api.put<{ post: PostDTO }>(`/posts/${id}`, {
+      title: eTitle, bodyHtml: eBody, codeSnippet: eCode.trim() || null, linkUrl: eLink.trim() || null,
+    });
+    setPost(up); setPEdit(false);
+  }
+  async function delPost() {
+    if (!window.confirm(L.confirmDelete)) return;
+    await api.del(`/posts/${id}`);
+    nav("/");
   }
 
   const right = (
@@ -143,26 +119,48 @@ export function PostDetail() {
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--faint)" }}>{post.community && <>a/{post.community.slug} · </>}{timeAgo(post.createdAt, lang)}</div>
           </div>
+          {isAuthor && !pEdit && (
+            <div style={{ display: "flex", gap: 6, flex: "none" }}>
+              <button className="btng" style={{ padding: "7px 10px" }} title={L.edit} onClick={() => initEdit(post)}><Icon name="pen" size={13} /></button>
+              <button className="btng" style={{ padding: "7px 10px", color: "#e0554b" }} title={L.remove} onClick={delPost}><Icon name="x" size={13} /></button>
+            </div>
+          )}
         </div>
-        <h1 style={{ fontWeight: 700, fontSize: 32, lineHeight: 1.15, margin: "0 0 16px" }} dangerouslySetInnerHTML={{ __html: post.title }} />
-        {post.bodyHtml && <div style={{ fontSize: 15.5, lineHeight: 1.75, color: "var(--text)", marginBottom: 16, fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />}
-        {post.codeSnippet && <pre className="codeblk" style={{ margin: "0 0 16px" }}>{post.codeSnippet}</pre>}
-        {post.link && (
-          <div className="hoverrow" style={{ display: "flex", gap: 12, alignItems: "center", padding: "13px 15px", margin: "0 0 16px", border: "var(--sw) solid var(--stroke)" }} onClick={() => window.open(post.link!.url, "_blank")}>
-            <div className="sticker" style={{ width: 42, height: 42, background: "var(--acsoft)", color: "var(--ac)" }}><Icon name="link" /></div>
-            <div style={{ minWidth: 0 }}><div className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{post.link.title}</div><div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>{post.link.url}</div></div>
+
+        {pEdit ? (
+          <div>
+            <div className="field2"><label>{L.title}</label><RichEditor value={eTitle} onChange={setETitle} singleLine placeholder={L.title} /></div>
+            <div className="field2"><label>{L.body}</label><RichEditor value={eBody} onChange={setEBody} minHeight={120} placeholder={L.body} /></div>
+            <div className="field2"><label>{L.codeOptional}</label><textarea className="finput" value={eCode} onChange={(e) => setECode(e.target.value)} style={{ fontFamily: "ui-monospace, monospace" }} /></div>
+            <div className="field2"><label>{L.linkOptional}</label><input className="finput" value={eLink} onChange={(e) => setELink(e.target.value)} placeholder="https://…" /></div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btnp" style={{ padding: "9px 18px" }} onClick={savePost}>{L.save}</button>
+              <button className="btng" onClick={() => setPEdit(false)}>{L.cancel}</button>
+            </div>
           </div>
+        ) : (
+          <>
+            <h1 style={{ fontWeight: 700, fontSize: 32, lineHeight: 1.15, margin: "0 0 16px" }} dangerouslySetInnerHTML={{ __html: post.title }} />
+            {post.bodyHtml && <div style={{ fontSize: 15.5, lineHeight: 1.75, color: "var(--text)", marginBottom: 16, fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />}
+            {post.codeSnippet && <pre className="codeblk" style={{ margin: "0 0 16px" }}>{post.codeSnippet}</pre>}
+            {post.link && (
+              <div className="hoverrow" style={{ display: "flex", gap: 12, alignItems: "center", padding: "13px 15px", margin: "0 0 16px", border: "var(--sw) solid var(--stroke)" }} onClick={() => window.open(post.link!.url, "_blank")}>
+                <div className="sticker" style={{ width: 42, height: 42, background: "var(--acsoft)", color: "var(--ac)" }}><Icon name="link" /></div>
+                <div style={{ minWidth: 0 }}><div className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{post.link.title}</div><div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>{post.link.url}</div></div>
+              </div>
+            )}
+            {post.imageUrl && <img src={post.imageUrl} alt="" style={{ width: "100%", margin: "0 0 16px", borderRadius: 14, border: "var(--sw) solid var(--stroke)", display: "block" }} />}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div className={`vote ${myVote === 1 ? "up" : myVote === -1 ? "dn" : ""}`}>
+                <button className={`arrow up ${myVote === 1 ? "on" : ""}`} onClick={() => vote(1)}><Icon name="up" size={13} /></button>
+                <span className="fk" style={{ fontWeight: 600, fontSize: 14, minWidth: 22, textAlign: "center" }}>{score}</span>
+                <button className={`arrow dn ${myVote === -1 ? "on" : ""}`} onClick={() => vote(-1)}><Icon name="down" size={13} /></button>
+              </div>
+              <span className="act"><Icon name="comment" size={14} /> {comments.length}</span>
+              <span className={`act ${myFire ? "on" : ""}`} onClick={toggleFire}>🔥 {fire}</span>
+            </div>
+          </>
         )}
-        {post.imageUrl && <img src={post.imageUrl} alt="" style={{ width: "100%", margin: "0 0 16px", borderRadius: 14, border: "var(--sw) solid var(--stroke)", display: "block" }} />}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <div className={`vote ${myVote === 1 ? "up" : myVote === -1 ? "dn" : ""}`}>
-            <button className={`arrow up ${myVote === 1 ? "on" : ""}`} onClick={() => vote(1)}><Icon name="up" size={13} /></button>
-            <span className="fk" style={{ fontWeight: 600, fontSize: 14, minWidth: 22, textAlign: "center" }}>{score}</span>
-            <button className={`arrow dn ${myVote === -1 ? "on" : ""}`} onClick={() => vote(-1)}><Icon name="down" size={13} /></button>
-          </div>
-          <span className="act"><Icon name="comment" size={14} /> {comments.length}</span>
-          <span className={`act ${myFire ? "on" : ""}`} onClick={toggleFire}>🔥 {fire}</span>
-        </div>
       </article>
 
       <div style={{ marginTop: 22 }}>
@@ -178,7 +176,24 @@ export function PostDetail() {
             </div>
           </div>
         )}
-        {comments.map((c) => <CommentItem key={c.id} c={c} postId={id!} onReplied={onReplied} />)}
+        {comments.map((c) => (
+          <div key={c.id} style={{ padding: "6px 0 14px", borderTop: "var(--sw) solid var(--stroke)" }}>
+            <CommentRow c={c} onChanged={reloadComments} onReply={() => { setReplyingId(replyingId === c.id ? null : c.id); setReplyText(""); }} />
+            {c.replies.map((rp) => (
+              <div key={rp.id} style={{ margin: "10px 0 0 42px", padding: "10px 0 0 16px", borderLeft: "var(--sw) solid var(--ac)" }}>
+                <CommentRow c={rp} onChanged={reloadComments} indent />
+              </div>
+            ))}
+            {replyingId === c.id && (
+              <div style={{ margin: "12px 0 0 42px" }}>
+                <RichEditor value={replyText} onChange={setReplyText} placeholder={`${L.reply}…`} dense minHeight={56} onSubmit={() => submitReply(c.id)} />
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                  <button className="btnp" style={{ padding: "8px 16px" }} onClick={() => submitReply(c.id)}>{L.send}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </Layout>
   );

@@ -110,6 +110,10 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     addLink: "Додати посилання",
     changePhoto: "Змінити фото",
     remove: "Видалити",
+    edit: "Редагувати",
+    confirmDelete: "Видалити? Цю дію не можна скасувати.",
+    edited: "змінено",
+    deleted: "повідомлення видалено",
     linkPlaceholder: "https://… або @нік",
   },
   en: {
@@ -219,7 +223,11 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     contacts: "Contacts & socials",
     addLink: "Add link",
     changePhoto: "Change photo",
-    remove: "Remove",
+    remove: "Delete",
+    edit: "Edit",
+    confirmDelete: "Delete? This can't be undone.",
+    edited: "edited",
+    deleted: "message deleted",
     linkPlaceholder: "https://… or @handle",
   },
 };

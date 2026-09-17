@@ -6,6 +6,7 @@ import { Layout } from "../components/Layout";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { Avatar } from "../components/Avatar";
 import { RichEditor } from "../components/RichEditor";
+import { CommentRow } from "../components/CommentRow";
 import { Icon } from "../icons/Icon";
 import { useAuth, useLang } from "../store/providers";
 import { timeAgo } from "../store/utils";
@@ -58,12 +59,7 @@ export function Thread() {
 
       {comments.map((c) => (
         <div key={c.id} style={{ padding: "6px 0 14px", borderTop: "var(--sw) solid var(--stroke)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, paddingTop: 12 }}>
-            <Avatar nickname={c.author.nickname} avatarUrl={c.author.avatarUrl} size={32} />
-            <span className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{c.author.nickname}</span>
-            <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>· {timeAgo(c.createdAt, lang)}</span>
-          </div>
-          <p style={{ fontSize: 14, lineHeight: 1.6, margin: 0, paddingLeft: 42, color: "var(--text)", fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: c.bodyHtml }} />
+          <CommentRow c={c} onChanged={load} />
         </div>
       ))}
     </Layout>

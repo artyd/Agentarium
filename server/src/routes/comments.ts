@@ -53,6 +53,32 @@ export default async function commentRoutes(app: FastifyInstance) {
     return reply.send({ comment: serializeComment(c as never) });
   });
 
+  app.put("/comments/:id", { preHandler: requireAuth }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const parsed = z.object({ bodyHtml: z.string().min(1).max(5000) }).safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid input" });
+    const c = await prisma.comment.findUnique({ where: { id }, select: { authorId: true } });
+    if (!c) return reply.code(404).send({ error: "not found" });
+    if (c.authorId !== request.user!.id) return reply.code(403).send({ error: "forbidden" });
+    const updated = await prisma.comment.update({
+      where: { id },
+      data: { bodyHtml: cleanHtml(parsed.data.bodyHtml) },
+      include: commentInclude,
+    });
+    return reply.send({ comment: serializeComment(updated as never) });
+  });
+
+  app.delete("/comments/:id", { preHandler: requireAuth }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const c = await prisma.comment.findUnique({ where: { id }, select: { authorId: true } });
+    if (!c) return reply.code(404).send({ error: "not found" });
+    if (c.authorId !== request.user!.id) return reply.code(403).send({ error: "forbidden" });
+    // remove direct replies first (self-relation isn't cascade), then the comment
+    await prisma.comment.deleteMany({ where: { parentCommentId: id } });
+    await prisma.comment.delete({ where: { id } });
+    return reply.send({ ok: true });
+  });
+
   // Upvote a comment (idempotent per user via a Redis set).
   app.post("/comments/:id/vote", { preHandler: requireAuth }, async (request, reply) => {
     const id = (request.params as { id: string }).id;

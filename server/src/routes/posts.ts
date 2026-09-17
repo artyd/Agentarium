@@ -94,6 +94,36 @@ export default async function postRoutes(app: FastifyInstance) {
     return reply.send({ post: serializePost(post as never, request.user!.id) });
   });
 
+  app.put("/posts/:id", { preHandler: requireAuth }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const parsed = z
+      .object({
+        title: z.string().min(1).max(2000).optional(),
+        bodyHtml: z.string().max(20000).optional(),
+        codeSnippet: z.string().max(20000).optional().nullable(),
+        linkUrl: z.string().url().max(500).optional().nullable(),
+        imageUrl: z.string().max(500).optional().nullable(),
+      })
+      .safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid input" });
+    const post = await prisma.post.findUnique({ where: { id }, select: { authorId: true } });
+    if (!post) return reply.code(404).send({ error: "not found" });
+    if (post.authorId !== request.user!.id) return reply.code(403).send({ error: "forbidden" });
+    const d = parsed.data;
+    const updated = await prisma.post.update({
+      where: { id },
+      data: {
+        ...(d.title !== undefined ? { title: cleanInline(d.title) } : {}),
+        ...(d.bodyHtml !== undefined ? { bodyHtml: cleanHtml(d.bodyHtml) } : {}),
+        ...(d.codeSnippet !== undefined ? { codeSnippet: d.codeSnippet ? cleanText(d.codeSnippet) : null } : {}),
+        ...(d.linkUrl !== undefined ? { linkUrl: d.linkUrl } : {}),
+        ...(d.imageUrl !== undefined ? { imageUrl: d.imageUrl } : {}),
+      },
+      include: postInclude,
+    });
+    return reply.send({ post: serializePost(updated as never, request.user!.id) });
+  });
+
   app.delete("/posts/:id", { preHandler: requireAuth }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
     const p = await prisma.post.findUnique({ where: { id } });

@@ -86,6 +86,27 @@ export function setupChatSockets(io: Server, app: FastifyInstance) {
       if (chatId) socket.to(`chat:${chatId}`).emit("chat:typing", { chatId, user });
     });
 
+    socket.on("chat:edit", async (payload: { messageId?: string; body?: string }, ack?: (r: unknown) => void) => {
+      const messageId = String(payload?.messageId ?? "");
+      const body = cleanHtml(String(payload?.body ?? "")).slice(0, 8000);
+      if (!messageId || !body.replace(/<[^>]*>/g, "").trim()) return ack?.({ error: "invalid" });
+      const m = await prisma.message.findUnique({ where: { id: messageId } });
+      if (!m || m.authorId !== user.id) return ack?.({ error: "forbidden" });
+      await prisma.message.update({ where: { id: messageId }, data: { body } });
+      io.to(`chat:${m.chatId}`).emit("chat:message:edit", { id: messageId, chatId: m.chatId, body });
+      ack?.({ ok: true });
+    });
+
+    socket.on("chat:delete", async (payload: { messageId?: string }, ack?: (r: unknown) => void) => {
+      const messageId = String(payload?.messageId ?? "");
+      if (!messageId) return ack?.({ error: "invalid" });
+      const m = await prisma.message.findUnique({ where: { id: messageId } });
+      if (!m || m.authorId !== user.id) return ack?.({ error: "forbidden" });
+      await prisma.message.delete({ where: { id: messageId } });
+      io.to(`chat:${m.chatId}`).emit("chat:message:delete", { id: messageId, chatId: m.chatId });
+      ack?.({ ok: true });
+    });
+
     socket.on("chat:read", async (payload: { chatId?: string }) => {
       const chatId = String(payload?.chatId ?? "");
       if (!chatId) return;
