@@ -54,6 +54,16 @@ export function Feed() {
   const leftExtra = (
     <>
       <div style={{ height: "var(--sw)", background: "var(--stroke)", opacity: 0.35, borderRadius: 2, margin: "6px 0 14px" }} />
+      {!tag && (
+        <>
+          <div className="kick" style={{ marginBottom: 10 }}>{L.feed}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {scopes.map((s) => (
+              <span key={s.key} className={`chip ${scope === s.key ? "on" : ""}`} onClick={() => setScope(s.key)}>{s.label}</span>
+            ))}
+          </div>
+        </>
+      )}
       <div className="kick" style={{ marginBottom: 10 }}>{L.sortLabel}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
         {(["hot", "new", "top"] as const).map((s) => (
@@ -87,16 +97,10 @@ export function Feed() {
 
   return (
     <Layout mode="feed" leftExtra={leftExtra} right={right}>
-      {tag ? (
+      {tag && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <h2 className="fk" style={{ fontWeight: 600, fontSize: 22 }}>#{tag}</h2>
           <span className="link" style={{ fontSize: 13 }} onClick={() => { sp.delete("tag"); setSp(sp, { replace: true }); }}>✕</span>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          {scopes.map((s) => (
-            <span key={s.key} className={`chip ${scope === s.key ? "on" : ""}`} onClick={() => setScope(s.key)}>{s.label}</span>
-          ))}
         </div>
       )}
 

@@ -94,10 +94,19 @@ async function main() {
   await app.register(fastifyStatic, { root: UPLOAD_DIR, prefix: "/uploads/", decorateReply: false });
 
   // ── Static SPA (production build) ──
-  await app.register(fastifyStatic, { root: WEB_DIST, prefix: "/" });
+  // Hashed assets are immutable (cache forever); index.html must not be cached so
+  // clients pick up new bundles immediately after a deploy.
+  await app.register(fastifyStatic, {
+    root: WEB_DIST,
+    prefix: "/",
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-cache");
+      else if (filePath.includes(`${path.sep}assets${path.sep}`)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  });
   app.setNotFoundHandler((request, reply) => {
     if (request.method === "GET" && !request.url.startsWith("/api") && !request.url.startsWith("/socket.io")) {
-      return reply.sendFile("index.html");
+      return reply.header("Cache-Control", "no-cache").sendFile("index.html");
     }
     reply.code(404).send({ error: "not found" });
   });
