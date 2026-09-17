@@ -47,7 +47,7 @@ async function main() {
 
   await app.register(
     async (api) => {
-      await api.register(authRoutes);
+      await api.register(authRoutes, { prefix: "/auth" });
       await api.register(joinRoutes);
       await api.register(postRoutes);
       await api.register(commentRoutes);
