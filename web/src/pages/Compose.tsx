@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { CommunityListItem, PostDTO } from "../api/types";
 import { Layout } from "../components/Layout";
@@ -12,6 +12,7 @@ const stripTags = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
 export function Compose() {
   const nav = useNavigate();
+  const [sp] = useSearchParams();
   const { L } = useLang();
   const [type, setType] = useState<string>("thought");
   const [titleHtml, setTitleHtml] = useState("");
@@ -24,7 +25,16 @@ export function Compose() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.get<{ communities: CommunityListItem[] }>("/communities").then((r) => setCommunities(r.communities.filter((c) => c.isMember)));
+    api.get<{ communities: CommunityListItem[] }>("/communities").then((r) => {
+      const mine = r.communities.filter((c) => c.isMember);
+      setCommunities(mine);
+      const preslug = sp.get("community");
+      if (preslug) {
+        const match = mine.find((c) => c.slug === preslug);
+        if (match) setCommunityId(match.id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function publish() {

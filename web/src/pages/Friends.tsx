@@ -5,9 +5,11 @@ import { getSocket } from "../api/socket";
 import type { ChatListItem, MessageDTO, PersonDTO } from "../api/types";
 import { Layout } from "../components/Layout";
 import { Avatar } from "../components/Avatar";
+import { RichEditor } from "../components/RichEditor";
 import { Icon } from "../icons/Icon";
 import { useAuth, useLang } from "../store/providers";
-import { timeAgo } from "../store/utils";
+
+const stripTags = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
 export function Friends() {
   const nav = useNavigate();
@@ -19,6 +21,7 @@ export function Friends() {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [draft, setDraft] = useState("");
+  const [inputKey, setInputKey] = useState(0);
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -71,9 +74,10 @@ export function Friends() {
   }
 
   function send() {
-    if (!draft.trim() || !activeChat) return;
+    if (!stripTags(draft) || !activeChat) return;
     getSocket().emit("chat:message", { chatId: activeChat, body: draft });
     setDraft("");
+    setInputKey((k) => k + 1);
   }
 
   const active = useMemo(() => chats.find((c) => c.id === activeChat) ?? null, [chats, activeChat]);
@@ -120,7 +124,7 @@ export function Friends() {
                 <Avatar nickname={c.title} avatarUrl={c.others[0]?.avatarUrl} size={40} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{c.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.lastMessage?.body ?? "—"}</div>
+                  <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.lastMessage ? stripTags(c.lastMessage.body) : "—"}</div>
                 </div>
                 {c.unread > 0 && <span className="tag" style={{ background: "var(--pink)", color: "#fff", padding: "2px 7px" }}>{c.unread}</span>}
               </div>
@@ -139,14 +143,16 @@ export function Friends() {
                 <div ref={scroller} style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
                   {messages.map((m) => (
                     <div key={m.id} style={{ display: "flex", justifyContent: m.mine ? "flex-end" : "flex-start" }}>
-                      <div className={`bub2 ${m.mine ? "me" : "you"}`}>{m.body}</div>
+                      <div className={`bub2 ${m.mine ? "me" : "you"}`} dangerouslySetInnerHTML={{ __html: m.body }} />
                     </div>
                   ))}
                 </div>
-                <div style={{ padding: 12, borderTop: "var(--sw) solid var(--stroke)", display: "flex", gap: 8 }}>
-                  <input className="finput" value={draft} placeholder={L.messagePlaceholder}
-                    onChange={(e) => { setDraft(e.target.value); getSocket().emit("chat:typing", { chatId: active.id }); }}
-                    onKeyDown={(e) => e.key === "Enter" && send()} />
+                <div style={{ padding: 12, borderTop: "var(--sw) solid var(--stroke)", display: "flex", gap: 8, alignItems: "flex-end" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <RichEditor key={inputKey} value={draft} singleLine dense placeholder={L.messagePlaceholder}
+                      onChange={(v) => { setDraft(v); getSocket().emit("chat:typing", { chatId: active.id }); }}
+                      onSubmit={send} />
+                  </div>
                   <button className="btnp" style={{ padding: "10px 18px" }} onClick={send}><Icon name="paperplane" size={15} /></button>
                 </div>
               </>

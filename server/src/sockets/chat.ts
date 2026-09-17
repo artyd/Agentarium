@@ -4,6 +4,7 @@ import * as cookie from "cookie";
 import { prisma } from "../lib/prisma.js";
 import { redis } from "../lib/redis.js";
 import { publicUser } from "../lib/serialize.js";
+import { cleanHtml } from "../lib/sanitize.js";
 
 type SocketUser = { id: string; nickname: string };
 
@@ -46,8 +47,9 @@ export function setupChatSockets(io: Server, app: FastifyInstance) {
     socket.on("chat:message", async (payload: { chatId?: string; body?: string }, ack?: (r: unknown) => void) => {
       try {
         const chatId = String(payload?.chatId ?? "");
-        const body = String(payload?.body ?? "").trim().slice(0, 4000);
-        if (!chatId || !body) return ack?.({ error: "invalid" });
+        const body = cleanHtml(String(payload?.body ?? "")).slice(0, 8000);
+        const plain = body.replace(/<[^>]*>/g, "").trim();
+        if (!chatId || !plain) return ack?.({ error: "invalid" });
         const member = await prisma.chatMember.findUnique({
           where: { chatId_userId: { chatId, userId: user.id } },
         });
