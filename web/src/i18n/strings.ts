@@ -128,6 +128,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     deleteChat: "Видалити чат",
     confirmLeave: "Вийти? Ви більше не будете учасником.",
     confirmDeleteCommunity: "Видалити спільноту разом з темами? Цю дію не можна скасувати.",
+    readMore: "Читати далі",
   },
   en: {
     heroKicker: "A private guild for agent builders",
@@ -255,6 +256,7 @@ export const STRINGS: Record<Lang, Record<string, string>> = {
     deleteChat: "Delete chat",
     confirmLeave: "Leave? You'll no longer be a member.",
     confirmDeleteCommunity: "Delete the community and its threads? This can't be undone.",
+    readMore: "Read more",
   },
 };
 

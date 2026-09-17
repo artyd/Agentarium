@@ -46,6 +46,19 @@ export function PostCard({ post }: { post: PostDTO }) {
   const voteState = myVote === 1 ? "up" : myVote === -1 ? "dn" : "";
   if (deleted) return null;
 
+  // Feed shows a ~100-char plain-text excerpt; full formatted body is on the post page.
+  const plain = post.bodyHtml.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+  const LIMIT = 100;
+  let excerpt = plain;
+  let truncated = false;
+  if (plain.length > LIMIT) {
+    let cut = plain.slice(0, LIMIT);
+    const sp = cut.lastIndexOf(" ");
+    if (sp > LIMIT * 0.6) cut = cut.slice(0, sp);
+    excerpt = cut + "…";
+    truncated = true;
+  }
+
   return (
     <article className="chunk" style={{ padding: "18px 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
@@ -84,8 +97,11 @@ export function PostCard({ post }: { post: PostDTO }) {
         )}
       </div>
       <h3 className="link" style={{ fontWeight: 600, fontSize: 21, lineHeight: 1.24, margin: "0 0 8px", color: "var(--text)" }} onClick={() => nav(`/post/${post.id}`)} dangerouslySetInnerHTML={{ __html: post.title }} />
-      {post.bodyHtml && (
-        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 14px", fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />
+      {excerpt && (
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: "var(--muted)", margin: "0 0 14px", fontWeight: 600 }}>
+          {excerpt}
+          {truncated && <> <span className="link" onClick={() => nav(`/post/${post.id}`)}>{L.readMore}</span></>}
+        </p>
       )}
       {post.codeSnippet && <pre className="codeblk" style={{ margin: "0 0 14px" }}>{post.codeSnippet}</pre>}
       {post.link && (
