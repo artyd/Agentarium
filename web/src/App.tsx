@@ -15,6 +15,7 @@ import { Friends } from "./pages/Friends";
 import { Search } from "./pages/Search";
 import { Requests } from "./pages/Requests";
 import { Settings } from "./pages/Settings";
+import { Explore } from "./pages/Explore";
 import { ComposeModal } from "./components/ComposeModal";
 import { WelcomeBackModal } from "./components/WelcomeBackModal";
 
@@ -57,6 +58,7 @@ export function App() {
             <Route path="/" element={<Feed />} />
             <Route path="/post/:id" element={<PostDetail />} />
             <Route path="/profile/:nickname" element={<Profile />} />
+            <Route path="/explore" element={<Explore />} />
             <Route path="/communities" element={<Communities />} />
             <Route path="/c/:slug" element={<Group />} />
             <Route path="/thread/:id" element={<Thread />} />

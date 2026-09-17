@@ -74,7 +74,7 @@ export default async function commentRoutes(app: FastifyInstance) {
     if (!c) return reply.code(404).send({ error: "not found" });
     if (c.authorId !== request.user!.id) return reply.code(403).send({ error: "forbidden" });
     const { html } = await resolveMentions(cleanHtml(parsed.data.bodyHtml));
-    const updated = await prisma.comment.update({ where: { id }, data: { bodyHtml: html }, include: commentInclude });
+    const updated = await prisma.comment.update({ where: { id }, data: { bodyHtml: html, editedAt: new Date() }, include: commentInclude });
     return reply.send({ comment: serializeComment(updated as never) });
   });
 

@@ -27,6 +27,7 @@ export function Friends() {
   const [editMsgText, setEditMsgText] = useState("");
   const [reqCount, setReqCount] = useState(0);
   const scroller = useRef<HTMLDivElement>(null);
+  const chatImg = useRef<HTMLInputElement>(null);
 
   const loadChats = () => api.get<{ chats: ChatListItem[] }>("/chats").then((r) => setChats(r.chats));
   const loadPeople = () => api.get<{ people: PersonDTO[] }>("/people").then((r) => setPeople(r.people));
@@ -225,6 +226,8 @@ export function Friends() {
                       onChange={(v) => { setDraft(v); getSocket().emit("chat:typing", { chatId: active.id }); }}
                       onSubmit={send} />
                   </div>
+                  <button className="btng" style={{ padding: "10px 12px" }} title={L.addImageChat} onClick={() => chatImg.current?.click()}><Icon name="image" size={15} /></button>
+                  <input ref={chatImg} type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => { const f = e.target.files?.[0]; if (f && active) { const { url } = await api.upload(f); getSocket().emit("chat:message", { chatId: active.id, body: `<img src="${url}" alt="">` }); } if (chatImg.current) chatImg.current.value = ""; }} />
                   <button className="btnp" style={{ padding: "10px 18px" }} onClick={send}><Icon name="paperplane" size={15} /></button>
                 </div>
               </>

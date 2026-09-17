@@ -55,3 +55,9 @@
 .typebtn.on .ic svg {
   color: var(--ac-ink);
 }
+.bub2 img {
+  max-width: 100%;
+  border-radius: 10px;
+  display: block;
+  margin: 2px 0;
+}

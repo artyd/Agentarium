@@ -26,6 +26,8 @@ import searchRoutes from "./routes/search.js";
 import requestsRoutes from "./routes/requests.js";
 import uploadRoutes from "./routes/uploads.js";
 import notificationRoutes from "./routes/notifications.js";
+import socialRoutes from "./routes/social.js";
+import catalogRoutes from "./routes/catalog.js";
 import { setIO } from "./lib/realtime.js";
 import { runPeriodicAchievements } from "./lib/achievements.js";
 
@@ -86,6 +88,8 @@ async function main() {
       await api.register(requestsRoutes);
       await api.register(uploadRoutes);
       await api.register(notificationRoutes);
+      await api.register(socialRoutes);
+      await api.register(catalogRoutes);
     },
     { prefix: "/api" },
   );

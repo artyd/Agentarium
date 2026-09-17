@@ -34,9 +34,13 @@ type PostRow = {
   codeSnippet: string | null;
   linkUrl: string | null;
   linkTitle: string | null;
+  linkDesc: string | null;
+  linkImage: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
   pinned: boolean;
   tags: string[];
+  editedAt: Date | null;
   createdAt: Date;
   communityId: string | null;
   author: { id: string; nickname: string; avatarUrl: string | null; bio: string | null };
@@ -50,18 +54,28 @@ type PostRow = {
 export function serializePost(p: PostRow, userId: string | null) {
   const score = p.votes.reduce((s, v) => s + v.value, 0);
   const myVote = userId ? p.votes.find((v) => v.userId === userId)?.value ?? 0 : 0;
-  const fire = p.reactions.length;
-  const myFire = userId ? p.reactions.some((r) => r.userId === userId) : false;
+  const byEmoji = new Map<string, { count: number; mine: boolean }>();
+  for (const r of p.reactions) {
+    const e = byEmoji.get(r.emoji) ?? { count: 0, mine: false };
+    e.count++;
+    if (userId && r.userId === userId) e.mine = true;
+    byEmoji.set(r.emoji, e);
+  }
+  const reactions = [...byEmoji.entries()].map(([emoji, v]) => ({ emoji, count: v.count, mine: v.mine }));
+  const fire = byEmoji.get("🔥")?.count ?? 0;
+  const myFire = byEmoji.get("🔥")?.mine ?? false;
   return {
     id: p.id,
     type: p.type,
     title: cleanInline(p.title),
     bodyHtml: cleanHtml(p.bodyHtml),
     codeSnippet: p.codeSnippet,
-    link: p.linkUrl ? { url: p.linkUrl, title: p.linkTitle ?? p.linkUrl } : null,
+    link: p.linkUrl ? { url: p.linkUrl, title: p.linkTitle ?? p.linkUrl, desc: p.linkDesc, image: p.linkImage } : null,
     imageUrl: p.imageUrl,
+    imageUrls: p.imageUrls?.length ? p.imageUrls : p.imageUrl ? [p.imageUrl] : [],
     pinned: p.pinned,
     tags: p.tags,
+    edited: !!p.editedAt,
     createdAt: p.createdAt.toISOString(),
     author: publicUser(p.author),
     community: p.community
@@ -71,6 +85,7 @@ export function serializePost(p: PostRow, userId: string | null) {
     myVote,
     fire,
     myFire,
+    reactions,
     bookmarked: userId ? p.bookmarks.some((b) => b.userId === userId) : false,
     commentCount: p._count.comments,
   };
@@ -84,6 +99,7 @@ type CommentRow = {
   id: string;
   bodyHtml: string;
   score: number;
+  editedAt?: Date | null;
   createdAt: Date;
   parentCommentId: string | null;
   author: { id: string; nickname: string; avatarUrl: string | null; bio: string | null };
@@ -93,6 +109,7 @@ export type CommentDTO = {
   id: string;
   bodyHtml: string;
   score: number;
+  edited: boolean;
   createdAt: string;
   parentCommentId: string | null;
   author: PublicUser;
@@ -104,6 +121,7 @@ export function serializeComment(c: CommentRow): CommentDTO {
     id: c.id,
     bodyHtml: cleanHtml(c.bodyHtml),
     score: c.score,
+    edited: !!c.editedAt,
     createdAt: c.createdAt.toISOString(),
     parentCommentId: c.parentCommentId,
     author: publicUser(c.author),

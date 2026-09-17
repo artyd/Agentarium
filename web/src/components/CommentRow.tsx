@@ -47,7 +47,7 @@ export function CommentRow({
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
         <Avatar nickname={c.author.nickname} avatarUrl={c.author.avatarUrl} size={indent ? 26 : 32} color={indent ? "var(--pink)" : undefined} />
         <span className="fk" style={{ fontWeight: 600, fontSize: indent ? 13 : 14 }}>{c.author.nickname}</span>
-        <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>· {score} ▲</span>
+        <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>· {score} ▲{c.edited ? ` · ${L.editedMark}` : ""}</span>
       </div>
 
       {editing ? (

@@ -29,6 +29,16 @@ export default async function profileRoutes(app: FastifyInstance) {
 
     const isMe = request.user?.id === u.id;
     const repos = (u.githubReposCache as { name: string; commits?: string }[] | null) ?? [];
+    const [followerCount, followingCount] = await Promise.all([
+      prisma.follow.count({ where: { followingId: u.id } }),
+      prisma.follow.count({ where: { followerId: u.id } }),
+    ]);
+    let isFollowing = false;
+    let isBlocked = false;
+    if (request.user && !isMe) {
+      isFollowing = !!(await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: request.user.id, followingId: u.id } } }));
+      isBlocked = !!(await prisma.block.findUnique({ where: { blockerId_blockedId: { blockerId: request.user.id, blockedId: u.id } } }));
+    }
 
     return {
       profile: {
@@ -43,6 +53,10 @@ export default async function profileRoutes(app: FastifyInstance) {
         githubUrl: u.githubUrl,
         githubRepos: u.githubConnected ? repos : [],
         isMe,
+        isFollowing,
+        isBlocked,
+        followerCount,
+        followingCount,
       },
       posts: posts.map((p) => serializePost(p as never, request.user?.id ?? null)),
       projects: u.projects,

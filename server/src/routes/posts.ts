@@ -8,6 +8,8 @@ import { checkAchievements } from "../lib/achievements.js";
 import { resolveMentions } from "../lib/mentions.js";
 import { notify } from "../lib/notify.js";
 import { emitAll } from "../lib/realtime.js";
+import { fetchLinkPreview } from "../lib/linkpreview.js";
+import { blockedIds } from "../lib/blocks.js";
 
 const POST_TYPES = ["agent", "project", "article", "skill", "thought"] as const;
 
@@ -19,6 +21,7 @@ const createSchema = z.object({
   linkUrl: z.string().url().max(500).optional().nullable(),
   linkTitle: z.string().max(200).optional().nullable(),
   imageUrl: z.string().max(500).optional().nullable(),
+  imageUrls: z.array(z.string().max(500)).max(6).optional().default([]),
   communityId: z.string().optional().nullable(),
 });
 
@@ -54,6 +57,9 @@ export default async function postRoutes(app: FastifyInstance) {
       const fr = await prisma.friendship.findMany({ where: { status: "accepted", OR: [{ userAId: me }, { userBId: me }] } });
       const ids = fr.map((f) => (f.userAId === me ? f.userBId : f.userAId));
       where.authorId = { in: ids.length ? ids : ["__none__"] };
+    } else if (me && q.scope === "following") {
+      const fl = await prisma.follow.findMany({ where: { followerId: me }, select: { followingId: true } });
+      where.authorId = { in: fl.length ? fl.map((f) => f.followingId) : ["__none__"] };
     } else if (me && q.scope === "communities") {
       const mem = await prisma.communityMember.findMany({ where: { userId: me }, select: { communityId: true } });
       where.communityId = { in: mem.map((m) => m.communityId).concat("__none__") };
@@ -62,7 +68,8 @@ export default async function postRoutes(app: FastifyInstance) {
     }
 
     const rows = await prisma.post.findMany({ where, include: postInclude, orderBy: { createdAt: "desc" }, take: 100 });
-    let posts = rows.map((p) => serializePost(p as never, me));
+    const blocked = await blockedIds(me);
+    let posts = rows.map((p) => serializePost(p as never, me)).filter((p) => !blocked.has(p.author.id));
 
     const sort = q.sort ?? "hot";
     if (sort === "new") posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -78,7 +85,9 @@ export default async function postRoutes(app: FastifyInstance) {
     const id = (request.params as { id: string }).id;
     const p = await prisma.post.findUnique({ where: { id }, include: postInclude });
     if (!p) return reply.code(404).send({ error: "not found" });
-    const comments = await prisma.comment.findMany({ where: { postId: id }, include: commentInclude, orderBy: { createdAt: "asc" } });
+    const csort = (request.query as { commentSort?: string }).commentSort;
+    const orderBy = csort === "new" ? { createdAt: "desc" as const } : csort === "best" ? [{ score: "desc" as const }, { createdAt: "asc" as const }] : { createdAt: "asc" as const };
+    const comments = await prisma.comment.findMany({ where: { postId: id }, include: commentInclude, orderBy });
     return { post: serializePost(p as never, request.user?.id ?? null), comments: nestComments(comments as never) };
   });
 
@@ -96,12 +105,19 @@ export default async function postRoutes(app: FastifyInstance) {
     const title = cleanInline(d.title);
     const { html, userIds } = await resolveMentions(cleanHtml(d.bodyHtml ?? ""));
     const tags = extractTags(title, html);
+    const preview = d.linkUrl ? await fetchLinkPreview(d.linkUrl) : null;
+    const images = (d.imageUrls ?? []).slice(0, 6);
     const post = await prisma.post.create({
       data: {
         authorId: me, type: d.type, title, bodyHtml: html,
         codeSnippet: d.codeSnippet ? cleanText(d.codeSnippet) : null,
-        linkUrl: d.linkUrl ?? null, linkTitle: d.linkTitle ? cleanText(d.linkTitle) : null,
-        imageUrl: d.imageUrl ?? null, communityId: d.communityId ?? null, tags,
+        linkUrl: d.linkUrl ?? null,
+        linkTitle: (d.linkTitle ? cleanText(d.linkTitle) : null) ?? (preview?.title ? cleanText(preview.title) : null),
+        linkDesc: preview?.desc ? cleanText(preview.desc) : null,
+        linkImage: preview?.image ?? null,
+        imageUrl: images[0] ?? d.imageUrl ?? null,
+        imageUrls: images,
+        communityId: d.communityId ?? null, tags,
       },
       include: postInclude,
     });
@@ -136,6 +152,7 @@ export default async function postRoutes(app: FastifyInstance) {
     if (d.codeSnippet !== undefined) data.codeSnippet = d.codeSnippet ? cleanText(d.codeSnippet) : null;
     if (d.linkUrl !== undefined) data.linkUrl = d.linkUrl;
     if (d.imageUrl !== undefined) data.imageUrl = d.imageUrl;
+    data.editedAt = new Date();
     const updated = await prisma.post.update({ where: { id }, data, include: postInclude });
     return reply.send({ post: serializePost(updated as never, request.user!.id) });
   });
@@ -198,22 +215,29 @@ export default async function postRoutes(app: FastifyInstance) {
     return reply.send({ score: votes.reduce((s, v) => s + v.value, 0), myVote: value });
   });
 
+  const ALLOWED_EMOJI = new Set(["🔥", "👍", "❤️", "😂", "🎉", "🚀", "👀"]);
   app.post("/posts/:id/react", { preHandler: requireAuth }, async (request, reply) => {
     const id = (request.params as { id: string }).id;
-    const emoji = "🔥";
+    const raw = (request.body as { emoji?: string } | undefined)?.emoji;
+    const emoji = raw && ALLOWED_EMOJI.has(raw) ? raw : "🔥";
     const me = request.user!.id;
     const existing = await prisma.postReaction.findUnique({ where: { postId_userId_emoji: { postId: id, userId: me, emoji } } });
-    let myFire: boolean;
     if (existing) {
       await prisma.postReaction.delete({ where: { id: existing.id } });
-      myFire = false;
     } else {
       await prisma.postReaction.create({ data: { postId: id, userId: me, emoji } });
-      myFire = true;
       const p = await prisma.post.findUnique({ where: { id }, select: { authorId: true } });
       if (p) await notify({ userId: p.authorId, actorId: me, type: "fire", postId: id });
     }
-    const fire = await prisma.postReaction.count({ where: { postId: id } });
-    return reply.send({ fire, myFire });
+    const all = await prisma.postReaction.findMany({ where: { postId: id }, select: { emoji: true, userId: true } });
+    const byEmoji = new Map<string, { count: number; mine: boolean }>();
+    for (const r of all) {
+      const e = byEmoji.get(r.emoji) ?? { count: 0, mine: false };
+      e.count++;
+      if (r.userId === me) e.mine = true;
+      byEmoji.set(r.emoji, e);
+    }
+    const reactions = [...byEmoji.entries()].map(([e, v]) => ({ emoji: e, count: v.count, mine: v.mine }));
+    return reply.send({ reactions, fire: byEmoji.get("🔥")?.count ?? 0, myFire: byEmoji.get("🔥")?.mine ?? false });
   });
 }

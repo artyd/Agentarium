@@ -14,8 +14,8 @@ export function PostCard({ post, canModerate }: { post: PostDTO; canModerate?: b
   const { me } = useAuth();
   const [score, setScore] = useState(post.score);
   const [myVote, setMyVote] = useState(post.myVote);
-  const [fire, setFire] = useState(post.fire);
-  const [myFire, setMyFire] = useState(post.myFire);
+  const [reactions, setReactions] = useState(post.reactions);
+  const [picker, setPicker] = useState(false);
   const [bookmarked, setBookmarked] = useState(post.bookmarked);
   const [pinned, setPinned] = useState(post.pinned);
   const [menu, setMenu] = useState(false);
@@ -23,11 +23,29 @@ export function PostCard({ post, canModerate }: { post: PostDTO; canModerate?: b
   const [share, setShare] = useState(false);
   const typeClass = `t-${post.type}`;
   const isAuthor = me?.id === post.author.id;
+  const EMOJIS = ["🔥", "👍", "❤️", "😂", "🎉", "🚀", "👀"];
 
   async function del() {
     setMenu(false);
     if (!window.confirm(L.confirmDelete)) return;
     await api.del(`/posts/${post.id}`);
+    setDeleted(true);
+  }
+  async function react(emoji: string) {
+    if (!me) return nav("/");
+    setPicker(false);
+    const r = await api.post<{ reactions: { emoji: string; count: number; mine: boolean }[] }>(`/posts/${post.id}/react`, { emoji });
+    setReactions(r.reactions);
+  }
+  async function report() {
+    setMenu(false);
+    const reason = window.prompt(L.reportReason);
+    if (reason) { await api.post("/reports", { postId: post.id, reason }); window.alert(L.reportSent); }
+  }
+  async function block() {
+    setMenu(false);
+    if (!window.confirm(`${L.block} @${post.author.nickname}?`)) return;
+    await api.post(`/users/${post.author.nickname}/block`);
     setDeleted(true);
   }
   async function toggleBookmark() {
@@ -48,13 +66,6 @@ export function PostCard({ post, canModerate }: { post: PostDTO; canModerate?: b
     const r = await api.post<{ score: number; myVote: number }>(`/posts/${post.id}/vote`, { value });
     setScore(r.score);
   }
-  async function toggleFire() {
-    if (!me) return nav("/");
-    const r = await api.post<{ fire: number; myFire: boolean }>(`/posts/${post.id}/react`);
-    setFire(r.fire);
-    setMyFire(r.myFire);
-  }
-
   const voteState = myVote === 1 ? "up" : myVote === -1 ? "dn" : "";
   if (deleted) return null;
 
@@ -110,17 +121,19 @@ export function PostCard({ post, canModerate }: { post: PostDTO; canModerate?: b
                 ·{" "}
               </>
             )}
-            {timeAgo(post.createdAt, lang)}
+            {timeAgo(post.createdAt, lang)}{post.edited ? ` · ${L.editedMark}` : ""}
           </div>
         </div>
-        {(isAuthor || canModerate) && (
+        {me && (
           <div style={{ position: "relative", flex: "none" }}>
-            <button className="btng" style={{ padding: "2px 10px", boxShadow: "none", fontSize: 18, lineHeight: 1 }} title={L.edit} onClick={() => setMenu((v) => !v)}>⋯</button>
+            <button className="btng" style={{ padding: "2px 10px", boxShadow: "none", fontSize: 18, lineHeight: 1 }} title="•••" onClick={() => setMenu((v) => !v)}>⋯</button>
             {menu && (
-              <div className="chunk" style={{ position: "absolute", right: 0, top: 38, width: 180, padding: 6, zIndex: 30 }}>
+              <div className="chunk" style={{ position: "absolute", right: 0, top: 38, width: 190, padding: 6, zIndex: 30 }}>
                 {isAuthor && <div className="com" onClick={() => { setMenu(false); nav(`/post/${post.id}?edit=1`); }}><Icon name="pen" size={13} /> {L.edit}</div>}
                 {canModerate && <div className="com" onClick={togglePin}>📌 {pinned ? L.unpinLabel : L.pinLabel}</div>}
-                <div className="com" style={{ color: "#e0554b" }} onClick={del}><Icon name="x" size={13} /> {L.remove}</div>
+                {(isAuthor || canModerate) && <div className="com" style={{ color: "#e0554b" }} onClick={del}><Icon name="x" size={13} /> {L.remove}</div>}
+                {!isAuthor && <div className="com" onClick={report}>⚠️ {L.report}</div>}
+                {!isAuthor && <div className="com" style={{ color: "#e0554b" }} onClick={block}>🚫 {L.block}</div>}
               </div>
             )}
           </div>
@@ -142,17 +155,25 @@ export function PostCard({ post, canModerate }: { post: PostDTO; canModerate?: b
         </pre>
       )}
       {post.link && (
-        <div className="hoverrow" style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 13px", margin: "0 0 14px", border: "var(--sw) solid var(--stroke)" }} onClick={() => window.open(post.link!.url, "_blank")}>
-          <div className="sticker" style={{ width: 38, height: 38, background: "var(--acsoft)", color: "var(--ac)" }}>
-            <Icon name="link" />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div className="fk" style={{ fontWeight: 600, fontSize: 13 }}>{post.link.title}</div>
-            <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.link.url}</div>
+        <div className="hoverrow" style={{ margin: "0 0 14px", border: "var(--sw) solid var(--stroke)", overflow: "hidden" }} onClick={() => window.open(post.link!.url, "_blank")}>
+          {post.link.image && <img src={post.link.image} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block", borderBottom: "var(--sw) solid var(--stroke)" }} />}
+          <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "11px 13px" }}>
+            <div className="sticker" style={{ width: 38, height: 38, background: "var(--acsoft)", color: "var(--ac)", flex: "none" }}><Icon name="link" /></div>
+            <div style={{ minWidth: 0 }}>
+              <div className="fk" style={{ fontWeight: 600, fontSize: 13 }}>{post.link.title}</div>
+              {post.link.desc && <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{post.link.desc}</div>}
+              <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.link.url}</div>
+            </div>
           </div>
         </div>
       )}
-      {post.imageUrl && <img src={post.imageUrl} alt="" style={{ width: "100%", margin: "0 0 14px", borderRadius: 14, border: "var(--sw) solid var(--stroke)", display: "block" }} />}
+      {post.imageUrls.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: post.imageUrls.length === 1 ? "1fr" : "1fr 1fr", gap: 8, margin: "0 0 14px" }}>
+          {post.imageUrls.slice(0, 4).map((u, i) => (
+            <img key={i} src={u} alt="" style={{ width: "100%", maxHeight: post.imageUrls.length === 1 ? 420 : 200, objectFit: "cover", borderRadius: 14, border: "var(--sw) solid var(--stroke)", display: "block" }} />
+          ))}
+        </div>
+      )}
       {post.tags.length > 0 && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "0 0 12px" }}>
           {post.tags.map((t) => (
@@ -167,7 +188,17 @@ export function PostCard({ post, canModerate }: { post: PostDTO; canModerate?: b
           <button className={`arrow dn ${myVote === -1 ? "on" : ""}`} onClick={() => vote(-1)}><Icon name="down" size={13} /></button>
         </div>
         <span className="act" onClick={() => nav(`/post/${post.id}`)}><Icon name="comment" size={14} /> {post.commentCount}</span>
-        <span className={`act ${myFire ? "on" : ""}`} onClick={toggleFire}>🔥 {fire}</span>
+        {reactions.map((r) => (
+          <span key={r.emoji} className={`act ${r.mine ? "on" : ""}`} onClick={() => react(r.emoji)}>{r.emoji} {r.count}</span>
+        ))}
+        <div style={{ position: "relative" }}>
+          <span className="act" onClick={() => setPicker((v) => !v)}>🙂+</span>
+          {picker && (
+            <div className="chunk" style={{ position: "absolute", bottom: 40, left: 0, padding: 6, display: "flex", gap: 2, zIndex: 30 }}>
+              {EMOJIS.map((e) => <span key={e} onClick={() => react(e)} style={{ cursor: "pointer", fontSize: 20, padding: "2px 5px" }}>{e}</span>)}
+            </div>
+          )}
+        </div>
         <span className={`act ${bookmarked ? "on" : ""}`} style={{ marginLeft: "auto" }} onClick={toggleBookmark} title={L.saved}>🔖</span>
         <span className="act" onClick={() => setShare(true)}>
           <Icon name="share" size={13} /> {L.share}

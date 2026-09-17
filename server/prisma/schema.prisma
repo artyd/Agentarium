@@ -89,6 +89,12 @@ model User {
   bookmarks        Bookmark[]
   notifications    Notification[]     @relation("NotifRecipient")
   actedNotifs      Notification[]     @relation("NotifActor")
+  following        Follow[]           @relation("Follower")
+  followers        Follow[]           @relation("Following")
+  blocking         Block[]            @relation("Blocker")
+  blockedBy        Block[]            @relation("Blocked")
+  reportsMade      Report[]           @relation("Reporter")
+  reportsAgainst   Report[]           @relation("ReportTarget")
 
   @@index([nickname])
 }
@@ -177,9 +183,13 @@ model Post {
   codeSnippet String?
   linkUrl     String?
   linkTitle   String?
+  linkDesc    String?
+  linkImage   String?
   imageUrl    String?
+  imageUrls   String[]   @default([])
   pinned      Boolean    @default(false)
   tags        String[]   @default([])
+  editedAt    DateTime?
   createdAt   DateTime   @default(now())
 
   votes     PostVote[]
@@ -229,6 +239,7 @@ model Comment {
   authorId        String
   bodyHtml        String
   score           Int       @default(0)
+  editedAt        DateTime?
   createdAt       DateTime  @default(now())
 
   @@index([postId, createdAt])
@@ -365,6 +376,50 @@ enum NotificationType {
   friend_accept
   community_invite
   join_request
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockerId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  blockedId String
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+}
+
+enum ReportStatus {
+  open
+  resolved
+}
+
+model Report {
+  id           String       @id @default(cuid())
+  reporter     User         @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId   String
+  postId       String?
+  commentId    String?
+  targetUser   User?        @relation("ReportTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetUserId String?
+  reason       String
+  status       ReportStatus @default(open)
+  createdAt    DateTime     @default(now())
+
+  @@index([status, createdAt])
 }
 
 model Notification {

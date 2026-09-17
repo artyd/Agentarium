@@ -9,7 +9,7 @@ import { Icon } from "../icons/Icon";
 import { useLang } from "../store/providers";
 import { POST_TYPES, typeLabel, TYPE_ICON } from "../i18n/strings";
 
-type Scope = "all" | "friends" | "communities" | "saved";
+type Scope = "all" | "friends" | "following" | "communities" | "saved";
 
 export function Feed() {
   const { L } = useLang();
@@ -47,6 +47,7 @@ export function Feed() {
   const scopes: { key: Scope; label: string }[] = [
     { key: "all", label: L.feedAll },
     { key: "friends", label: L.feedFriends },
+    { key: "following", label: L.feedFollowing },
     { key: "communities", label: L.feedCommunities },
     { key: "saved", label: L.feedSaved },
   ];

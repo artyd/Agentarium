@@ -54,6 +54,7 @@ export function Layout({
       <aside className="side" style={{ padding: 14, position: "sticky", top: 88, alignSelf: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div className={`nav ${on("/")}`} onClick={() => nav("/")}><Icon name="house" /> {L.feed}</div>
+          <div className={`nav ${on("/explore")}`} onClick={() => nav("/explore")}><Icon name="rocket" /> {L.explore}</div>
           <div className={`nav ${on("/communities")}`} onClick={() => nav("/communities")}><Icon name="users" /> {L.communities}</div>
           <div className={`nav ${on("/friends")}`} onClick={() => nav("/friends")}>
             <Icon name="user" /> {L.friendsChats}

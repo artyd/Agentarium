@@ -27,8 +27,9 @@ export function PostDetail() {
   const [commentKey, setCommentKey] = useState(0);
   const [score, setScore] = useState(0);
   const [myVote, setMyVote] = useState(0);
-  const [fire, setFire] = useState(0);
-  const [myFire, setMyFire] = useState(false);
+  const [reactions, setReactions] = useState<PostDTO["reactions"]>([]);
+  const [picker, setPicker] = useState(false);
+  const [csort, setCsort] = useState<"" | "best" | "new">("");
   // reply
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -41,18 +42,19 @@ export function PostDetail() {
   const [share, setShare] = useState(false);
 
   useEffect(() => {
-    api.get<{ post: PostDTO; comments: CommentDTO[] }>(`/posts/${id}`).then((r) => {
+    api.get<{ post: PostDTO; comments: CommentDTO[] }>(`/posts/${id}${csort ? `?commentSort=${csort}` : ""}`).then((r) => {
       setPost(r.post);
       setComments(r.comments);
-      setScore(r.post.score); setMyVote(r.post.myVote); setFire(r.post.fire); setMyFire(r.post.myFire);
+      setScore(r.post.score); setMyVote(r.post.myVote); setReactions(r.post.reactions);
       if (sp.get("edit") && r.post.author.id === me?.id) initEdit(r.post);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, csort]);
 
   function reloadComments() {
-    api.get<{ post: PostDTO; comments: CommentDTO[] }>(`/posts/${id}`).then((r) => setComments(r.comments));
+    api.get<{ comments: CommentDTO[] }>(`/posts/${id}${csort ? `?commentSort=${csort}` : ""}`).then((r) => setComments(r.comments));
   }
+  const EMOJIS = ["🔥", "👍", "❤️", "😂", "🎉", "🚀", "👀"];
   function initEdit(p: PostDTO) {
     setETitle(p.title); setEBody(p.bodyHtml); setECode(p.codeSnippet ?? ""); setELink(p.link?.url ?? "");
     setPEdit(true);
@@ -69,9 +71,19 @@ export function PostDetail() {
     const r = await api.post<{ score: number }>(`/posts/${id}/vote`, { value });
     setScore(r.score);
   }
-  async function toggleFire() {
-    const r = await api.post<{ fire: number; myFire: boolean }>(`/posts/${id}/react`);
-    setFire(r.fire); setMyFire(r.myFire);
+  async function react(emoji: string) {
+    setPicker(false);
+    const r = await api.post<{ reactions: PostDTO["reactions"] }>(`/posts/${id}/react`, { emoji });
+    setReactions(r.reactions);
+  }
+  async function report() {
+    const reason = window.prompt(L.reportReason);
+    if (reason) { await api.post("/reports", { postId: id, reason }); window.alert(L.reportSent); }
+  }
+  async function block() {
+    if (!post || !window.confirm(`${L.block} @${post.author.nickname}?`)) return;
+    await api.post(`/users/${post.author.nickname}/block`);
+    nav("/");
   }
   async function submitComment() {
     if (!stripTags(text)) return;
@@ -119,12 +131,18 @@ export function PostDetail() {
               <span className="fk link" style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }} onClick={() => nav(`/profile/${post.author.nickname}`)}>{post.author.nickname}</span>
               <span className={`tag ${typeClass}`}>{typeLabel(post.type, L)}</span>
             </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--faint)" }}>{post.community && <>a/{post.community.slug} · </>}{timeAgo(post.createdAt, lang)}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--faint)" }}>{post.community && <>a/{post.community.slug} · </>}{timeAgo(post.createdAt, lang)}{post.edited ? ` · ${L.editedMark}` : ""}</div>
           </div>
           {isAuthor && !pEdit && (
             <div style={{ display: "flex", gap: 6, flex: "none" }}>
               <button className="btng" style={{ padding: "7px 10px" }} title={L.edit} onClick={() => initEdit(post)}><Icon name="pen" size={13} /></button>
               <button className="btng" style={{ padding: "7px 10px", color: "#e0554b" }} title={L.remove} onClick={delPost}><Icon name="x" size={13} /></button>
+            </div>
+          )}
+          {!isAuthor && me && (
+            <div style={{ display: "flex", gap: 6, flex: "none" }}>
+              <button className="btng" style={{ padding: "7px 10px" }} title={L.report} onClick={report}>⚠️</button>
+              <button className="btng" style={{ padding: "7px 10px", color: "#e0554b" }} title={L.block} onClick={block}>🚫</button>
             </div>
           )}
         </div>
@@ -146,12 +164,19 @@ export function PostDetail() {
             {post.bodyHtml && <div style={{ fontSize: 15.5, lineHeight: 1.75, color: "var(--text)", marginBottom: 16, fontWeight: 600 }} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />}
             {post.codeSnippet && <pre className="codeblk" style={{ margin: "0 0 16px" }}>{post.codeSnippet}</pre>}
             {post.link && (
-              <div className="hoverrow" style={{ display: "flex", gap: 12, alignItems: "center", padding: "13px 15px", margin: "0 0 16px", border: "var(--sw) solid var(--stroke)" }} onClick={() => window.open(post.link!.url, "_blank")}>
-                <div className="sticker" style={{ width: 42, height: 42, background: "var(--acsoft)", color: "var(--ac)" }}><Icon name="link" /></div>
-                <div style={{ minWidth: 0 }}><div className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{post.link.title}</div><div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>{post.link.url}</div></div>
+              <div className="hoverrow" style={{ margin: "0 0 16px", border: "var(--sw) solid var(--stroke)", overflow: "hidden" }} onClick={() => window.open(post.link!.url, "_blank")}>
+                {post.link.image && <img src={post.link.image} alt="" style={{ width: "100%", maxHeight: 260, objectFit: "cover", display: "block", borderBottom: "var(--sw) solid var(--stroke)" }} />}
+                <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "13px 15px" }}>
+                  <div className="sticker" style={{ width: 42, height: 42, background: "var(--acsoft)", color: "var(--ac)", flex: "none" }}><Icon name="link" /></div>
+                  <div style={{ minWidth: 0 }}><div className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{post.link.title}</div>{post.link.desc && <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{post.link.desc}</div>}<div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>{post.link.url}</div></div>
+                </div>
               </div>
             )}
-            {post.imageUrl && <img src={post.imageUrl} alt="" style={{ width: "100%", margin: "0 0 16px", borderRadius: 14, border: "var(--sw) solid var(--stroke)", display: "block" }} />}
+            {post.imageUrls.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: post.imageUrls.length === 1 ? "1fr" : "1fr 1fr", gap: 8, margin: "0 0 16px" }}>
+                {post.imageUrls.map((u, i) => <img key={i} src={u} alt="" style={{ width: "100%", borderRadius: 14, border: "var(--sw) solid var(--stroke)", display: "block" }} />)}
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <div className={`vote ${myVote === 1 ? "up" : myVote === -1 ? "dn" : ""}`}>
                 <button className={`arrow up ${myVote === 1 ? "on" : ""}`} onClick={() => vote(1)}><Icon name="up" size={13} /></button>
@@ -159,7 +184,11 @@ export function PostDetail() {
                 <button className={`arrow dn ${myVote === -1 ? "on" : ""}`} onClick={() => vote(-1)}><Icon name="down" size={13} /></button>
               </div>
               <span className="act"><Icon name="comment" size={14} /> {comments.length}</span>
-              <span className={`act ${myFire ? "on" : ""}`} onClick={toggleFire}>🔥 {fire}</span>
+              {reactions.map((r) => <span key={r.emoji} className={`act ${r.mine ? "on" : ""}`} onClick={() => react(r.emoji)}>{r.emoji} {r.count}</span>)}
+              <div style={{ position: "relative" }}>
+                <span className="act" onClick={() => setPicker((v) => !v)}>🙂+</span>
+                {picker && <div className="chunk" style={{ position: "absolute", bottom: 40, left: 0, padding: 6, display: "flex", gap: 2, zIndex: 30 }}>{EMOJIS.map((e) => <span key={e} onClick={() => react(e)} style={{ cursor: "pointer", fontSize: 20, padding: "2px 5px" }}>{e}</span>)}</div>}
+              </div>
               <span className="act" style={{ marginLeft: "auto" }} onClick={() => setShare(true)}><Icon name="share" size={13} /> {L.share}</span>
             </div>
           </>
@@ -168,7 +197,11 @@ export function PostDetail() {
       {share && <ShareModal post={post} onClose={() => setShare(false)} />}
 
       <div style={{ marginTop: 22 }}>
-        <h3 className="fk" style={{ fontWeight: 600, fontSize: 18, margin: "0 0 14px" }}>{L.comments} · {comments.length}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 14px" }}>
+          <h3 className="fk" style={{ fontWeight: 600, fontSize: 18, flex: 1 }}>{L.comments} · {comments.length}</h3>
+          <span className={`chip ${csort !== "new" ? "on" : ""}`} onClick={() => setCsort("best")}>{L.sortBest}</span>
+          <span className={`chip ${csort === "new" ? "on" : ""}`} onClick={() => setCsort("new")}>{L.new}</span>
+        </div>
         {me && (
           <div className="chunk" style={{ padding: "12px 14px", marginBottom: 18, display: "flex", gap: 10, alignItems: "flex-start" }}>
             <Avatar nickname={me.nickname} avatarUrl={me.avatarUrl} size={36} color="var(--ac)" />

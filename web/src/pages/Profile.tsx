@@ -18,6 +18,7 @@ type ProfileData = {
     id: string; nickname: string; bio: string | null; avatarUrl: string | null; socialLinks: string[];
     githubConnected: boolean; githubMode: string | null; githubUsername: string | null; githubUrl: string | null;
     githubRepos: { name: string; commits: string }[]; isMe: boolean;
+    isFollowing: boolean; isBlocked: boolean; followerCount: number; followingCount: number;
   };
   posts: PostDTO[]; projects: Project[]; agents: Agent[]; skills: string[]; achievements: Ach[];
 };
@@ -34,10 +35,22 @@ export function Profile() {
   const [editBio, setEditBio] = useState("");
   const [editLinks, setEditLinks] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const load = () => api.get<ProfileData>(`/profile/${nickname}`).then(setData);
+  const load = () => api.get<ProfileData>(`/profile/${nickname}`).then((d) => { setData(d); setFollowing(d.profile.isFollowing); setBlocked(d.profile.isBlocked); });
   useEffect(() => { load(); }, [nickname]);
+
+  async function toggleFollow() {
+    const r = await api.post<{ following: boolean }>(`/users/${nickname}/follow`);
+    setFollowing(r.following);
+  }
+  async function toggleBlock() {
+    if (!blocked && !window.confirm(`${L.block} @${nickname}?`)) return;
+    const r = await api.post<{ blocked: boolean }>(`/users/${nickname}/block`);
+    setBlocked(r.blocked);
+  }
 
   function startEdit() {
     setEditBio(data?.profile.bio ?? "");
@@ -123,9 +136,20 @@ export function Profile() {
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h1 style={{ fontWeight: 700, fontSize: 30 }}>{p.nickname}</h1>
-                  <div style={{ fontSize: 13, color: "var(--faint)", fontWeight: 700, margin: "2px 0 10px" }}>@{p.nickname}</div>
+                  <div style={{ fontSize: 13, color: "var(--faint)", fontWeight: 700, margin: "2px 0 6px" }}>@{p.nickname}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", display: "flex", gap: 14 }}>
+                    <span><b style={{ color: "var(--text)" }}>{p.followerCount}</b> {L.followers}</span>
+                    <span><b style={{ color: "var(--text)" }}>{p.followingCount}</b> {L.followingN}</span>
+                  </div>
                 </div>
-                {p.isMe && !editing && <button className="btng" style={{ padding: "8px 14px" }} onClick={startEdit}><Icon name="pen" size={13} /> {L.editProfile}</button>}
+                {p.isMe ? (
+                  !editing && <button className="btng" style={{ padding: "8px 14px" }} onClick={startEdit}><Icon name="pen" size={13} /> {L.editProfile}</button>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, flex: "none" }}>
+                    <button className={following ? "btng" : "btnp"} style={{ padding: "8px 16px" }} onClick={toggleFollow}>{following ? L.unfollow : L.follow}</button>
+                    <button className="btng" style={{ padding: "8px 12px", color: blocked ? "var(--text)" : "#e0554b" }} onClick={toggleBlock} title={blocked ? L.unblock : L.block}>🚫</button>
+                  </div>
+                )}
               </div>
 
               {editing ? (

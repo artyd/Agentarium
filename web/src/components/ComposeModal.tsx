@@ -26,11 +26,15 @@ export function ComposeModal() {
   const [communities, setCommunities] = useState<CommunityListItem[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   useEffect(() => {
     if (!open) return;
-    // reset each time it opens
-    setType("thought"); setTitleHtml(""); setBodyHtml(""); setCode(""); setLinkUrl(""); setImages([]); setError(""); setBusy(false);
+    // restore a saved draft (if any), else reset
+    let d: { type?: string; titleHtml?: string; bodyHtml?: string; code?: string } | null = null;
+    try { d = JSON.parse(localStorage.getItem("ag_draft") || "null"); } catch { /* ignore */ }
+    setType(d?.type ?? "thought"); setTitleHtml(d?.titleHtml ?? ""); setBodyHtml(d?.bodyHtml ?? ""); setCode(d?.code ?? "");
+    setLinkUrl(""); setImages([]); setError(""); setBusy(false); setFormKey((k) => k + 1);
     api.get<{ communities: CommunityListItem[] }>("/communities").then((r) => {
       const mine = r.communities.filter((c) => c.isMember);
       setCommunities(mine);
@@ -39,6 +43,13 @@ export function ComposeModal() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, community]);
+
+  // Persist a draft as the user types.
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => localStorage.setItem("ag_draft", JSON.stringify({ type, titleHtml, bodyHtml, code })), 400);
+    return () => clearTimeout(t);
+  }, [open, type, titleHtml, bodyHtml, code]);
 
   if (!open) return null;
 
@@ -55,6 +66,7 @@ export function ComposeModal() {
         imageUrls: images,
         communityId: communityId || null,
       });
+      localStorage.removeItem("ag_draft");
       closeCompose();
       nav(`/post/${post.id}`);
     } catch (e) {
@@ -83,11 +95,11 @@ export function ComposeModal() {
 
         <div className="field2">
           <label>{L.title}</label>
-          <RichEditor value={titleHtml} onChange={setTitleHtml} placeholder={L.title} singleLine onSubmit={publish} />
+          <RichEditor key={`t${formKey}`} value={titleHtml} onChange={setTitleHtml} placeholder={L.title} singleLine onSubmit={publish} />
         </div>
         <div className="field2">
           <label>{L.body}</label>
-          <RichEditor value={bodyHtml} onChange={setBodyHtml} placeholder={L.body} minHeight={120} />
+          <RichEditor key={`b${formKey}`} value={bodyHtml} onChange={setBodyHtml} placeholder={L.body} minHeight={120} />
         </div>
 
         {(type === "agent" || type === "project" || type === "skill") && (
