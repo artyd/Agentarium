@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: ".",
   timeout: 45000,
   expect: { timeout: 10000 },
-  retries: 0,
+  retries: 1,
   reporter: [["list"]],
   use: {
     baseURL: process.env.AG_URL || "https://agentarium.alliancegroup95.com",

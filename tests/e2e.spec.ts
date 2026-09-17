@@ -44,7 +44,7 @@ test("walk all authed screens with no console/JS/API errors", async ({ page }) =
   const errors = attachErrorCollector(page);
   await login(page);
 
-  const routes = ["/", "/communities", "/friends", "/requests", "/search?q=a", `/profile/${USER}`, "/compose"];
+  const routes = ["/", "/communities", "/friends", "/requests", "/search?q=a", `/profile/${USER}`, "/compose", "/settings"];
   for (const r of routes) {
     await page.goto(r);
     await page.waitForTimeout(1200);
@@ -208,4 +208,18 @@ test("long code snippet truncated in feed, full on detail", async ({ page, reque
   expect((detailText.match(/line \d+/g) ?? []).length).toBe(20);
 
   await request.delete(`/api/posts/${pid}`, { headers: { Origin: BASE } });
+});
+
+test("notifications bell + settings work", async ({ page }) => {
+  test.skip(!PASS, "AG_PASS not provided");
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+  await login(page);
+  // open notifications bell
+  await page.getByRole("button", { name: "🔔" }).click();
+  await expect(page.getByText(/Сповіщення|Notifications/).first()).toBeVisible({ timeout: 6000 });
+  // settings: change-password section present
+  await page.goto("/settings");
+  await expect(page.getByText(/Змінити пароль|Change password/).first()).toBeVisible();
+  expect(errors, errors.join("\n")).toEqual([]);
 });
