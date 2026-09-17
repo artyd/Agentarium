@@ -13,7 +13,6 @@ export function Welcome() {
   const [pass, setPass] = useState("");
   const [bio, setBio] = useState("");
   const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
 
   async function submit() {
     setError("");
@@ -23,13 +22,14 @@ export function Welcome() {
         setMe(user);
         nav("/");
       } else {
-        await api.post("/auth/register", { nickname: nick, password: pass, bio });
-        setPending(true);
+        const { user } = await api.post<{ user: Me }>("/auth/register", { nickname: nick, password: pass, bio });
+        setMe(user);
+        nav("/");
       }
     } catch (e) {
       const err = e as Error & { status?: number };
-      if (err.status === 403) setError(lang === "ua" ? "Заявка ще на розгляді" : "Your request is pending approval");
-      else if (err.status === 409) setError(lang === "ua" ? "Нікнейм зайнято або заявка вже подана" : "Nickname taken or request already pending");
+      if (err.status === 409) setError(lang === "ua" ? "Нікнейм зайнято" : "Nickname taken");
+      else if (mode === "register") setError(lang === "ua" ? "Не вдалося зареєструватися" : "Registration failed");
       else setError(lang === "ua" ? "Невірний нікнейм або пароль" : "Invalid nickname or password");
     }
   }
@@ -51,30 +51,18 @@ export function Welcome() {
         </div>
         <div className="chunk" style={{ padding: "24px 28px" }}>
           <div className="seg" style={{ width: "100%", marginBottom: 18 }}>
-            <span className={`o ${mode === "login" ? "on" : ""}`} style={{ flex: 1, textAlign: "center" }} onClick={() => { setMode("login"); setPending(false); setError(""); }}>{L.login}</span>
-            <span className={`o ${mode === "register" ? "on" : ""}`} style={{ flex: 1, textAlign: "center" }} onClick={() => { setMode("register"); setPending(false); setError(""); }}>{L.register}</span>
+            <span className={`o ${mode === "login" ? "on" : ""}`} style={{ flex: 1, textAlign: "center" }} onClick={() => { setMode("login"); setError(""); }}>{L.login}</span>
+            <span className={`o ${mode === "register" ? "on" : ""}`} style={{ flex: 1, textAlign: "center" }} onClick={() => { setMode("register"); setError(""); }}>{L.register}</span>
           </div>
-          {pending ? (
-            <div style={{ textAlign: "center", padding: "14px 0" }}>
-              <div className="sticker" style={{ width: 60, height: 60, margin: "0 auto", background: "var(--acsoft)" }}><span style={{ fontSize: 28 }}>🎉</span></div>
-              <p style={{ fontSize: 15, margin: "14px 0 0", fontWeight: 700 }}>{L.onboardDone}</p>
-              <button className="btng" style={{ marginTop: 20 }} onClick={() => { setMode("login"); setPending(false); }}>{L.backToLogin}</button>
-            </div>
-          ) : (
-            <>
-              <h2 style={{ fontWeight: 700, fontSize: 24, margin: "0 0 5px" }}>{mode === "login" ? L.login : L.register}</h2>
-              <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px", fontWeight: 600 }}>{mode === "login" ? L.heroSub : L.onboardSub}</p>
-              <div className="field2"><label>{L.nick}</label><input className="finput" value={nick} onChange={(e) => setNick(e.target.value)} placeholder="ada.lovelace" /></div>
-              <div className="field2" style={{ marginBottom: 6 }}><label>{L.password}</label><input className="finput" type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" onKeyDown={(e) => e.key === "Enter" && submit()} /></div>
-              {mode === "register" && (
-                <div className="field2" style={{ marginTop: 15 }}><label>{L.shortBio}</label><input className="finput" value={bio} onChange={(e) => setBio(e.target.value)} placeholder={L.bioPlaceholder} /></div>
-              )}
-              {error && <p style={{ fontSize: 12, color: "#e0554b", margin: "12px 0 0", fontWeight: 700 }}>{error}</p>}
-              <button className="btnp block" style={{ marginTop: 16, padding: 12 }} onClick={submit}>{mode === "login" ? L.login : L.sendRequest}</button>
-              <div style={{ height: "var(--sw)", background: "var(--stroke)", opacity: 0.4, margin: "16px 0" }} />
-              <p style={{ fontSize: 12, lineHeight: 1.5, color: "var(--muted)", margin: 0, fontWeight: 600 }}>{L.noInvite} <span className="link" onClick={() => nav("/onboard")}>{L.applyJoin}</span></p>
-            </>
+          <h2 style={{ fontWeight: 700, fontSize: 24, margin: "0 0 5px" }}>{mode === "login" ? L.login : L.register}</h2>
+          <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 18px", fontWeight: 600 }}>{L.heroSub}</p>
+          <div className="field2"><label>{L.nick}</label><input className="finput" value={nick} onChange={(e) => setNick(e.target.value)} placeholder="ada.lovelace" /></div>
+          <div className="field2" style={{ marginBottom: 6 }}><label>{L.password}</label><input className="finput" type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="••••••••" onKeyDown={(e) => e.key === "Enter" && submit()} /></div>
+          {mode === "register" && (
+            <div className="field2" style={{ marginTop: 15 }}><label>{L.shortBio}</label><input className="finput" value={bio} onChange={(e) => setBio(e.target.value)} placeholder={L.bioPlaceholder} /></div>
           )}
+          {error && <p style={{ fontSize: 12, color: "#e0554b", margin: "12px 0 0", fontWeight: 700 }}>{error}</p>}
+          <button className="btnp block" style={{ marginTop: 16, padding: 12 }} onClick={submit}>{mode === "login" ? L.login : L.register}</button>
         </div>
       </div>
     </div>

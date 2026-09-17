@@ -19,7 +19,7 @@ const loginSchema = z.object({
 });
 
 export default async function authRoutes(app: FastifyInstance) {
-  // Register = submit a join request (no User is created until approved).
+  // Open registration — creates the account directly and logs the user in.
   app.post("/register", strictLimit, async (request, reply) => {
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid input" });
@@ -29,16 +29,10 @@ export default async function authRoutes(app: FastifyInstance) {
     const existingUser = await prisma.user.findUnique({ where: { nickname: nick } });
     if (existingUser) return reply.code(409).send({ error: "nickname taken" });
 
-    const pending = await prisma.joinRequest.findFirst({
-      where: { applicantNickname: nick, status: "pending" },
-    });
-    if (pending) return reply.code(409).send({ error: "request already pending" });
-
     const passwordHash = await argon2.hash(password);
-    await prisma.joinRequest.create({
-      data: { applicantNickname: nick, passwordHash, bio: cleanText(bio) },
-    });
-    return reply.send({ pending: true });
+    const user = await prisma.user.create({ data: { nickname: nick, passwordHash, bio: cleanText(bio) } });
+    await login(reply, user.id);
+    return reply.send({ user: { id: user.id, nickname: user.nickname, bio: user.bio, avatarUrl: user.avatarUrl, locale: user.locale } });
   });
 
   app.post("/login", strictLimit, async (request, reply) => {
