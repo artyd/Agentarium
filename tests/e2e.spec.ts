@@ -179,17 +179,46 @@ test("interactions: community tabs, comment, profile save/revert", async ({ page
   expect(errors, "Collected errors:\n" + errors.join("\n")).toEqual([]);
 });
 
-test("share modal opens from the feed", async ({ page }) => {
+// A modal card must have an opaque background — a transparent .agmodal means the
+// theme CSS vars (--card/--stroke) didn't resolve (e.g. portaled outside .app).
+const OPAQUE = /^rgba?\((?:\d+,\s*){2,3}(?:0?\.\d+|[1-9][0-9]?%?|1)\)?$|^rgb\(/;
+async function assertOpaqueModal(page: Page) {
+  const modal = page.locator(".agmodal").first();
+  await expect(modal).toBeVisible({ timeout: 6000 });
+  const bg = await modal.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(bg, `modal background should be opaque, got "${bg}"`).not.toBe("rgba(0, 0, 0, 0)");
+  expect(bg).not.toBe("transparent");
+  // alpha channel, if present, must be > 0
+  const m = bg.match(/rgba?\([^)]*?,\s*([0-9.]+)\)/);
+  if (m) expect(Number(m[1]), `modal alpha should be > 0, got "${bg}"`).toBeGreaterThan(0);
+}
+
+test("share modal opens from the feed and is opaque", async ({ page, request }) => {
   test.skip(!PASS, "AG_PASS not provided");
   const errors = attachErrorCollector(page);
+  // ensure there is a post to share (request context is authed via storageState)
+  const marker = "share-" + Date.now();
+  const created = await (await request.post("/api/posts", { data: { type: "thought", title: marker, bodyHtml: "<p>x</p>" }, headers: { Origin: BASE } })).json();
+  const pid = created.post.id;
+
   await login(page);
   await page.goto("/");
   await page.waitForTimeout(1200);
   const shareBtn = page.locator(".act", { hasText: /Поділитися|Share/ }).first();
-  if (await shareBtn.count()) {
-    await shareBtn.click();
-    await expect(page.getByRole("button", { name: /Копіювати|Copy/ }).first()).toBeVisible({ timeout: 6000 });
-  }
+  await shareBtn.click();
+  await expect(page.getByRole("button", { name: /Копіювати|Copy/ }).first()).toBeVisible({ timeout: 6000 });
+  await assertOpaqueModal(page);
+
+  await request.delete(`/api/posts/${pid}`, { headers: { Origin: BASE } });
+  expect(errors, errors.join("\n")).toEqual([]);
+});
+
+test("compose modal opens and is opaque", async ({ page }) => {
+  test.skip(!PASS, "AG_PASS not provided");
+  const errors = attachErrorCollector(page);
+  await login(page);
+  await page.getByRole("button", { name: /Новий пост|New post/ }).first().click();
+  await assertOpaqueModal(page);
   expect(errors, errors.join("\n")).toEqual([]);
 });
 

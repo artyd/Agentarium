@@ -2,9 +2,12 @@ import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /** Centered modal dialog with a blurred, dimmed backdrop. Click-outside and Esc close.
- *  Rendered through a portal to <body> so it is never trapped inside a transformed
- *  ancestor (e.g. `article.chunk:hover{transform:…}`), which would otherwise turn the
- *  post card into the containing block for our `position:fixed` overlay. */
+ *  Rendered through a portal to the `.app` root so it is never trapped inside a
+ *  transformed ancestor (e.g. `article.chunk:hover{transform:…}`), which would turn
+ *  the post card into the containing block for our `position:fixed` overlay. We mount
+ *  into `.app` (not <body>) because the theme CSS variables (`--card`, `--stroke`,
+ *  `--shadow`, …) are defined on `.app[data-theme]`; mounting outside it would leave
+ *  `var(--card)` unresolved and render a transparent, borderless card. */
 export function Modal({ children, onClose, width = 460 }: { children: ReactNode; onClose: () => void; width?: number }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -13,6 +16,8 @@ export function Modal({ children, onClose, width = 460 }: { children: ReactNode;
     document.addEventListener("keydown", onKey);
     return () => { document.body.style.overflow = prev; document.removeEventListener("keydown", onKey); };
   }, [onClose]);
+
+  const host = (typeof document !== "undefined" && document.querySelector(".app")) || document.body;
 
   return createPortal(
     <div
@@ -32,6 +37,6 @@ export function Modal({ children, onClose, width = 460 }: { children: ReactNode;
         {children}
       </div>
     </div>,
-    document.body,
+    host,
   );
 }
