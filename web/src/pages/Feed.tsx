@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { getSocket } from "../api/socket";
 import type { PostDTO, CommunityListItem } from "../api/types";
 import { Layout } from "../components/Layout";
 import { PostCard } from "../components/PostCard";
@@ -8,27 +9,48 @@ import { Icon } from "../icons/Icon";
 import { useLang } from "../store/providers";
 import { POST_TYPES, typeLabel, TYPE_ICON } from "../i18n/strings";
 
+type Scope = "all" | "friends" | "communities" | "saved";
+
 export function Feed() {
   const { L } = useLang();
   const nav = useNavigate();
+  const [sp, setSp] = useSearchParams();
+  const tag = sp.get("tag");
   const [posts, setPosts] = useState<PostDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<"hot" | "new" | "top">("hot");
   const [type, setType] = useState<string | null>(null);
+  const [scope, setScope] = useState<Scope>("all");
   const [communities, setCommunities] = useState<CommunityListItem[]>([]);
+  const [newCount, setNewCount] = useState(0);
 
-  useEffect(() => {
+  const loadFeed = () => {
     setLoading(true);
     const qs = new URLSearchParams({ sort });
     if (type) qs.set("type", type);
-    api.get<{ posts: PostDTO[] }>(`/posts?${qs}`).then((r) => { setPosts(r.posts); setLoading(false); });
-  }, [sort, type]);
+    if (scope !== "all") qs.set("scope", scope);
+    if (tag) qs.set("tag", tag);
+    return api.get<{ posts: PostDTO[] }>(`/posts?${qs}`).then((r) => { setPosts(r.posts); setLoading(false); setNewCount(0); });
+  };
+
+  useEffect(() => { loadFeed(); }, [sort, type, scope, tag]);
+  useEffect(() => { api.get<{ communities: CommunityListItem[] }>("/communities").then((r) => setCommunities(r.communities.slice(0, 5))); }, []);
 
   useEffect(() => {
-    api.get<{ communities: CommunityListItem[] }>("/communities").then((r) => setCommunities(r.communities.slice(0, 5)));
+    const s = getSocket();
+    const onNew = () => setNewCount((n) => n + 1);
+    s.on("feed:new", onNew);
+    return () => { s.off("feed:new", onNew); };
   }, []);
 
   const sortIcon = { hot: "fire", new: "wand", top: "star" } as const;
+  const scopes: { key: Scope; label: string }[] = [
+    { key: "all", label: L.feedAll },
+    { key: "friends", label: L.feedFriends },
+    { key: "communities", label: L.feedCommunities },
+    { key: "saved", label: L.feedSaved },
+  ];
+
   const leftExtra = (
     <>
       <div style={{ height: "var(--sw)", background: "var(--stroke)", opacity: 0.35, borderRadius: 2, margin: "6px 0 14px" }} />
@@ -65,6 +87,23 @@ export function Feed() {
 
   return (
     <Layout mode="feed" leftExtra={leftExtra} right={right}>
+      {tag ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <h2 className="fk" style={{ fontWeight: 600, fontSize: 22 }}>#{tag}</h2>
+          <span className="link" style={{ fontSize: 13 }} onClick={() => { sp.delete("tag"); setSp(sp, { replace: true }); }}>✕</span>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+          {scopes.map((s) => (
+            <span key={s.key} className={`chip ${scope === s.key ? "on" : ""}`} onClick={() => setScope(s.key)}>{s.label}</span>
+          ))}
+        </div>
+      )}
+
+      {newCount > 0 && (
+        <button className="btnp block" style={{ marginBottom: 16 }} onClick={loadFeed}>↑ {newCount} {L.showNewPosts}</button>
+      )}
+
       {loading ? (
         <div style={{ padding: 40, textAlign: "center" }}><span className="spin" /></div>
       ) : posts.length === 0 ? (

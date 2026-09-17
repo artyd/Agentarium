@@ -1,6 +1,7 @@
 import path from "node:path";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
+import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
@@ -24,6 +25,9 @@ import githubRoutes from "./routes/github.js";
 import searchRoutes from "./routes/search.js";
 import requestsRoutes from "./routes/requests.js";
 import uploadRoutes from "./routes/uploads.js";
+import notificationRoutes from "./routes/notifications.js";
+import { setIO } from "./lib/realtime.js";
+import { runPeriodicAchievements } from "./lib/achievements.js";
 
 const WEB_DIST = path.resolve("..", "web", "dist");
 const UPLOAD_DIR = path.resolve("uploads");
@@ -38,7 +42,29 @@ async function main() {
   });
 
   await app.register(cookie, { secret: env.SESSION_SECRET });
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  });
   await app.register(rateLimit, { global: false, max: 300, timeWindow: "1 minute" });
+
+  app.setErrorHandler((err, req, reply) => {
+    req.log.error({ err: { message: err.message, stack: err.stack }, url: req.url, method: req.method }, "request error");
+    const status = err.statusCode && err.statusCode >= 400 ? err.statusCode : 500;
+    reply.code(status).send({ error: status >= 500 ? "server error" : err.message });
+  });
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } });
   await app.register(sessionPlugin);
 
@@ -59,6 +85,7 @@ async function main() {
       await api.register(searchRoutes);
       await api.register(requestsRoutes);
       await api.register(uploadRoutes);
+      await api.register(notificationRoutes);
     },
     { prefix: "/api" },
   );
@@ -83,11 +110,19 @@ async function main() {
     cors: { origin: env.isProd ? env.PUBLIC_URL : true, credentials: true },
   });
   io.adapter(createAdapter(pubClient, subClient));
+  setIO(io);
   setupChatSockets(io, app);
 
   await app.listen({ port: env.PORT, host: "0.0.0.0" });
   app.log.info(`Agentarium listening on :${env.PORT}`);
+
+  // Hourly batch for time/aggregate-based achievements.
+  runPeriodicAchievements();
+  setInterval(() => runPeriodicAchievements(), 60 * 60 * 1000);
 }
+
+process.on("unhandledRejection", (reason) => console.error("[unhandledRejection]", reason));
+process.on("uncaughtException", (err) => console.error("[uncaughtException]", err));
 
 main().catch((e) => {
   console.error("Fatal startup error", e);

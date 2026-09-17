@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./store/providers";
 import { useLang } from "./store/providers";
 import { AppShell } from "./components/AppShell";
@@ -14,10 +15,29 @@ import { Friends } from "./pages/Friends";
 import { Search } from "./pages/Search";
 import { Requests } from "./pages/Requests";
 import { Compose } from "./pages/Compose";
+import { Settings } from "./pages/Settings";
 
 export function App() {
   const { me, loading } = useAuth();
   const { L } = useLang();
+  const nav = useNavigate();
+
+  // Intercept clicks on internal links (e.g. @mention/profile links inside rendered
+  // HTML) so they navigate within the SPA instead of doing a full page reload.
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey) return;
+      const a = (e.target as HTMLElement).closest?.("a");
+      if (!a) return;
+      const href = a.getAttribute("href");
+      if (href && href.startsWith("/") && !a.getAttribute("target") && a.getAttribute("href") !== location.pathname) {
+        e.preventDefault();
+        nav(href);
+      }
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [nav]);
 
   return (
     <div className="app" data-theme="light">
@@ -43,6 +63,7 @@ export function App() {
             <Route path="/search" element={<Search />} />
             <Route path="/requests" element={<Requests />} />
             <Route path="/compose" element={<Compose />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/onboard" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

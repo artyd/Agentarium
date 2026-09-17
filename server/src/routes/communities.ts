@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { cleanText } from "../lib/sanitize.js";
 import { requireAuth } from "../lib/session.js";
 import { nestComments, commentInclude, publicUser } from "../lib/serialize.js";
+import { notify } from "../lib/notify.js";
 
 function slugify(title: string): string {
   const base = title
@@ -155,6 +156,7 @@ export default async function communityRoutes(app: FastifyInstance) {
         data: { communityId: c.id, invitedUserId: parsed.data.userId, invitedById: request.user!.id },
       })
       .catch(() => {});
+    await notify({ userId: parsed.data.userId, actorId: request.user!.id, type: "community_invite", communityId: c.id, text: c.title });
     return reply.send({ ok: true });
   });
 
@@ -200,5 +202,15 @@ export default async function communityRoutes(app: FastifyInstance) {
       },
       comments: nestComments(comments as never),
     };
+  });
+
+  app.delete("/threads/:id", { preHandler: requireAuth }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const me = request.user!.id;
+    const t = await prisma.thread.findUnique({ where: { id }, include: { community: { select: { ownerId: true } } } });
+    if (!t) return reply.code(404).send({ error: "not found" });
+    if (t.authorId !== me && t.community.ownerId !== me) return reply.code(403).send({ error: "forbidden" });
+    await prisma.thread.delete({ where: { id } });
+    return reply.send({ ok: true });
   });
 }

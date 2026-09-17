@@ -21,7 +21,8 @@ ENV NODE_ENV=production
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY server/package*.json ./
 COPY --from=server-build /app/server/prisma ./prisma
-RUN npm ci --omit=dev && npx prisma generate
+RUN npm ci --omit=dev && npx prisma generate \
+    && npm install --os=linux --libc=glibc --cpu=x64 sharp
 COPY --from=server-build /app/server/dist ./dist
 COPY --from=web-build /app/web/dist /app/web/dist
 RUN mkdir -p uploads

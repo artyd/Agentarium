@@ -16,6 +16,23 @@ async function grant(userId: string, code: string) {
     .catch(() => {}); // ignore duplicate (unique constraint)
 }
 
+/** Hourly batch: award time/aggregate-based achievements that can't be checked
+ *  on a single action (hot threads, sustained activity). */
+export async function runPeriodicAchievements(): Promise<void> {
+  try {
+    const threads = await prisma.thread.findMany({
+      select: { authorId: true, _count: { select: { comments: true } } },
+    });
+    for (const t of threads) if (t._count.comments >= 10) await grant(t.authorId, "hot_thread");
+
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const grouped = await prisma.comment.groupBy({ by: ["authorId"], where: { createdAt: { gte: since } }, _count: { _all: true } });
+    for (const g of grouped) if (g._count._all >= 10) await grant(g.authorId, "active_member");
+  } catch (e) {
+    console.error("[achievements] periodic failed", e);
+  }
+}
+
 /** Evaluate achievement triggers after a relevant action. Cheap at this scale. */
 export async function checkAchievements(
   userId: string,

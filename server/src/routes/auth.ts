@@ -83,4 +83,29 @@ export default async function authRoutes(app: FastifyInstance) {
     });
     return reply.send({ ok: true });
   });
+
+  app.put("/me/password", { preHandler: requireAuth }, async (request, reply) => {
+    const parsed = z
+      .object({ oldPassword: z.string().min(1), newPassword: z.string().min(6).max(200) })
+      .safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid input" });
+    const user = await prisma.user.findUnique({ where: { id: request.user!.id } });
+    if (!user) return reply.code(404).send({ error: "not found" });
+    const ok = await argon2.verify(user.passwordHash, parsed.data.oldPassword).catch(() => false);
+    if (!ok) return reply.code(403).send({ error: "wrong password" });
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await argon2.hash(parsed.data.newPassword) } });
+    return reply.send({ ok: true });
+  });
+
+  app.delete("/me", { preHandler: requireAuth }, async (request, reply) => {
+    const parsed = z.object({ password: z.string().min(1) }).safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid input" });
+    const user = await prisma.user.findUnique({ where: { id: request.user!.id } });
+    if (!user) return reply.code(404).send({ error: "not found" });
+    const ok = await argon2.verify(user.passwordHash, parsed.data.password).catch(() => false);
+    if (!ok) return reply.code(403).send({ error: "wrong password" });
+    await prisma.user.delete({ where: { id: user.id } });
+    await logout(request, reply);
+    return reply.send({ ok: true });
+  });
 }

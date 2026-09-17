@@ -22,6 +22,7 @@ export const postInclude = {
   community: { select: { id: true, slug: true, title: true } },
   votes: { select: { userId: true, value: true } },
   reactions: { select: { userId: true, emoji: true } },
+  bookmarks: { select: { userId: true } },
   _count: { select: { comments: true } },
 } as const;
 
@@ -34,12 +35,15 @@ type PostRow = {
   linkUrl: string | null;
   linkTitle: string | null;
   imageUrl: string | null;
+  pinned: boolean;
+  tags: string[];
   createdAt: Date;
   communityId: string | null;
   author: { id: string; nickname: string; avatarUrl: string | null; bio: string | null };
   community: { id: string; slug: string; title: string } | null;
   votes: { userId: string; value: number }[];
   reactions: { userId: string; emoji: string }[];
+  bookmarks: { userId: string }[];
   _count: { comments: number };
 };
 
@@ -56,6 +60,8 @@ export function serializePost(p: PostRow, userId: string | null) {
     codeSnippet: p.codeSnippet,
     link: p.linkUrl ? { url: p.linkUrl, title: p.linkTitle ?? p.linkUrl } : null,
     imageUrl: p.imageUrl,
+    pinned: p.pinned,
+    tags: p.tags,
     createdAt: p.createdAt.toISOString(),
     author: publicUser(p.author),
     community: p.community
@@ -65,6 +71,7 @@ export function serializePost(p: PostRow, userId: string | null) {
     myVote,
     fire,
     myFire,
+    bookmarked: userId ? p.bookmarks.some((b) => b.userId === userId) : false,
     commentCount: p._count.comments,
   };
 }

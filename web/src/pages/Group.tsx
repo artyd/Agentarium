@@ -95,7 +95,7 @@ export function Group() {
 
       {tab === "posts" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {posts.map((p) => <PostCard key={p.id} post={p} />)}
+          {posts.map((p) => <PostCard key={p.id} post={p} canModerate={me?.id === c.owner.id} />)}
           {posts.length === 0 && <div className="chunk" style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontWeight: 600 }}>{L.empty}</div>}
         </div>
       ) : (
@@ -111,9 +111,17 @@ export function Group() {
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {threads.map((t) => (
-              <div key={t.id} className="chunk hoverrow" style={{ padding: "16px 18px", borderRadius: 20 }} onClick={() => nav(`/thread/${t.id}`)}>
-                <div className="fk" style={{ fontWeight: 600, fontSize: 17, marginBottom: 5 }}>{t.title}</div>
-                <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>{t.author.nickname} · {t.commentCount} {L.comments} · {timeAgo(t.createdAt, lang)}</div>
+              <div key={t.id} className="chunk hoverrow" style={{ padding: "16px 18px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10 }} onClick={() => nav(`/thread/${t.id}`)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="fk" style={{ fontWeight: 600, fontSize: 17, marginBottom: 5 }}>{t.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>{t.author.nickname} · {t.commentCount} {L.comments} · {timeAgo(t.createdAt, lang)}</div>
+                </div>
+                {(me?.id === t.author.id || me?.id === c.owner.id) && (
+                  <button className="btng" style={{ flex: "none", padding: "6px 10px", boxShadow: "none", color: "#e0554b" }}
+                    onClick={async (e) => { e.stopPropagation(); if (window.confirm(L.confirmDelete)) { await api.del(`/threads/${t.id}`); load(); } }}>
+                    <Icon name="x" size={12} />
+                  </button>
+                )}
               </div>
             ))}
             {threads.length === 0 && <div className="chunk" style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontWeight: 600 }}>{L.empty}</div>}

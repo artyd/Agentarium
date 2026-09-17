@@ -11,11 +11,26 @@ export type PostDTO = {
   createdAt: string;
   author: PublicUser;
   community: { id: string; slug: string; title: string } | null;
+  pinned: boolean;
+  tags: string[];
   score: number;
   myVote: number;
   fire: number;
   myFire: boolean;
+  bookmarked: boolean;
   commentCount: number;
+};
+
+export type NotificationDTO = {
+  id: string;
+  type: string;
+  postId: string | null;
+  commentId: string | null;
+  communityId: string | null;
+  text: string | null;
+  read: boolean;
+  createdAt: string;
+  actor: PublicUser | null;
 };
 
 export type CommentDTO = {
@@ -53,6 +68,7 @@ export type ChatListItem = {
   title: string;
   members: PublicUser[];
   others: PublicUser[];
+  online: boolean;
   lastMessage: { body: string; createdAt: string; authorId: string } | null;
   unread: number;
   updatedAt: string;
@@ -70,4 +86,5 @@ export type PersonDTO = PublicUser & {
   status: "none" | "pending" | "accepted";
   friendshipId: string | null;
   incoming: boolean;
+  online: boolean;
 };

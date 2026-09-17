@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../lib/session.js";
 import { publicUser } from "../lib/serialize.js";
+import { onlineSet } from "../lib/presence.js";
 
 async function unreadCount(chatId: string, userId: string, lastReadAt: Date | null): Promise<number> {
   return prisma.message.count({
@@ -29,6 +30,7 @@ export default async function chatRoutes(app: FastifyInstance) {
       },
     });
 
+    const online = await onlineSet();
     const chats = await Promise.all(
       memberships.map(async (m) => {
         const others = m.chat.members.filter((cm) => cm.userId !== me).map((cm) => publicUser(cm.user));
@@ -40,6 +42,7 @@ export default async function chatRoutes(app: FastifyInstance) {
           title: m.chat.title ?? (others[0]?.nickname ?? "Chat"),
           members: m.chat.members.map((cm) => publicUser(cm.user)),
           others,
+          online: others.some((o) => online.has(o.id)),
           lastMessage: last ? { body: last.body, createdAt: last.createdAt.toISOString(), authorId: last.authorId } : null,
           unread,
           updatedAt: (last?.createdAt ?? m.chat.createdAt).toISOString(),

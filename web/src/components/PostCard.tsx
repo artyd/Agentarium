@@ -8,7 +8,7 @@ import { timeAgo } from "../store/utils";
 import { typeLabel, TYPE_ICON } from "../i18n/strings";
 import { Icon } from "../icons/Icon";
 
-export function PostCard({ post }: { post: PostDTO }) {
+export function PostCard({ post, canModerate }: { post: PostDTO; canModerate?: boolean }) {
   const nav = useNavigate();
   const { L, lang } = useLang();
   const { me } = useAuth();
@@ -16,6 +16,8 @@ export function PostCard({ post }: { post: PostDTO }) {
   const [myVote, setMyVote] = useState(post.myVote);
   const [fire, setFire] = useState(post.fire);
   const [myFire, setMyFire] = useState(post.myFire);
+  const [bookmarked, setBookmarked] = useState(post.bookmarked);
+  const [pinned, setPinned] = useState(post.pinned);
   const [menu, setMenu] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [share, setShare] = useState(false);
@@ -27,6 +29,16 @@ export function PostCard({ post }: { post: PostDTO }) {
     if (!window.confirm(L.confirmDelete)) return;
     await api.del(`/posts/${post.id}`);
     setDeleted(true);
+  }
+  async function toggleBookmark() {
+    if (!me) return nav("/");
+    const r = await api.post<{ bookmarked: boolean }>(`/posts/${post.id}/bookmark`);
+    setBookmarked(r.bookmarked);
+  }
+  async function togglePin() {
+    setMenu(false);
+    const r = await api.post<{ pinned: boolean }>(`/posts/${post.id}/pin`);
+    setPinned(r.pinned);
   }
 
   async function vote(dir: 1 | -1) {
@@ -87,6 +99,7 @@ export function PostCard({ post }: { post: PostDTO }) {
               {post.author.nickname}
             </span>
             <span className={`tag ${typeClass}`}>{typeLabel(post.type, L)}</span>
+            {pinned && <span className="tag" style={{ background: "var(--acsoft)", color: "var(--ac)" }}>📌 {L.pinnedLabel}</span>}
           </div>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--faint)" }}>
             {post.community && (
@@ -100,12 +113,13 @@ export function PostCard({ post }: { post: PostDTO }) {
             {timeAgo(post.createdAt, lang)}
           </div>
         </div>
-        {isAuthor && (
+        {(isAuthor || canModerate) && (
           <div style={{ position: "relative", flex: "none" }}>
             <button className="btng" style={{ padding: "2px 10px", boxShadow: "none", fontSize: 18, lineHeight: 1 }} title={L.edit} onClick={() => setMenu((v) => !v)}>⋯</button>
             {menu && (
-              <div className="chunk" style={{ position: "absolute", right: 0, top: 38, width: 170, padding: 6, zIndex: 30 }}>
-                <div className="com" onClick={() => { setMenu(false); nav(`/post/${post.id}?edit=1`); }}><Icon name="pen" size={13} /> {L.edit}</div>
+              <div className="chunk" style={{ position: "absolute", right: 0, top: 38, width: 180, padding: 6, zIndex: 30 }}>
+                {isAuthor && <div className="com" onClick={() => { setMenu(false); nav(`/post/${post.id}?edit=1`); }}><Icon name="pen" size={13} /> {L.edit}</div>}
+                {canModerate && <div className="com" onClick={togglePin}>📌 {pinned ? L.unpinLabel : L.pinLabel}</div>}
                 <div className="com" style={{ color: "#e0554b" }} onClick={del}><Icon name="x" size={13} /> {L.remove}</div>
               </div>
             )}
@@ -139,6 +153,13 @@ export function PostCard({ post }: { post: PostDTO }) {
         </div>
       )}
       {post.imageUrl && <img src={post.imageUrl} alt="" style={{ width: "100%", margin: "0 0 14px", borderRadius: 14, border: "var(--sw) solid var(--stroke)", display: "block" }} />}
+      {post.tags.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "0 0 12px" }}>
+          {post.tags.map((t) => (
+            <span key={t} className="chip" style={{ fontSize: 12, padding: "3px 10px" }} onClick={() => nav(`/?tag=${encodeURIComponent(t)}`)}>#{t}</span>
+          ))}
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div className={`vote ${voteState}`}>
           <button className={`arrow up ${myVote === 1 ? "on" : ""}`} onClick={() => vote(1)}><Icon name="up" size={13} /></button>
@@ -147,7 +168,8 @@ export function PostCard({ post }: { post: PostDTO }) {
         </div>
         <span className="act" onClick={() => nav(`/post/${post.id}`)}><Icon name="comment" size={14} /> {post.commentCount}</span>
         <span className={`act ${myFire ? "on" : ""}`} onClick={toggleFire}>🔥 {fire}</span>
-        <span className="act" style={{ marginLeft: "auto" }} onClick={() => setShare(true)}>
+        <span className={`act ${bookmarked ? "on" : ""}`} style={{ marginLeft: "auto" }} onClick={toggleBookmark} title={L.saved}>🔖</span>
+        <span className="act" onClick={() => setShare(true)}>
           <Icon name="share" size={13} /> {L.share}
         </span>
       </div>

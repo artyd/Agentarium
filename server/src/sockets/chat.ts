@@ -5,6 +5,9 @@ import { prisma } from "../lib/prisma.js";
 import { redis } from "../lib/redis.js";
 import { publicUser } from "../lib/serialize.js";
 import { cleanHtml } from "../lib/sanitize.js";
+import { resolveMentions } from "../lib/mentions.js";
+import { notify } from "../lib/notify.js";
+import { emitAll } from "../lib/realtime.js";
 
 type SocketUser = { id: string; nickname: string };
 
@@ -34,6 +37,21 @@ export function setupChatSockets(io: Server, app: FastifyInstance) {
     const user = (socket.data as { user: SocketUser }).user;
     // Join a personal room + all of the user's chat rooms.
     socket.join(`user:${user.id}`);
+
+    // Presence: reference-count connections; first in / last out toggles online.
+    const count = await redis.incr(`pc:${user.id}`);
+    if (count === 1) {
+      await redis.sAdd("online", user.id);
+      emitAll("presence", { userId: user.id, online: true });
+    }
+    socket.on("disconnect", async () => {
+      const left = await redis.decr(`pc:${user.id}`);
+      if (left <= 0) {
+        await redis.del(`pc:${user.id}`);
+        await redis.sRem("online", user.id);
+        emitAll("presence", { userId: user.id, online: false });
+      }
+    });
     const memberships = await prisma.chatMember.findMany({
       where: { userId: user.id },
       select: { chatId: true },
@@ -47,7 +65,8 @@ export function setupChatSockets(io: Server, app: FastifyInstance) {
     socket.on("chat:message", async (payload: { chatId?: string; body?: string }, ack?: (r: unknown) => void) => {
       try {
         const chatId = String(payload?.chatId ?? "");
-        const body = cleanHtml(String(payload?.body ?? "")).slice(0, 8000);
+        const clean = cleanHtml(String(payload?.body ?? "")).slice(0, 8000);
+        const { html: body, userIds: mentioned } = await resolveMentions(clean);
         const plain = body.replace(/<[^>]*>/g, "").trim();
         if (!chatId || !plain) return ack?.({ error: "invalid" });
         const member = await prisma.chatMember.findUnique({
@@ -73,7 +92,9 @@ export function setupChatSockets(io: Server, app: FastifyInstance) {
           where: { chatId, userId: { not: user.id } },
           select: { userId: true },
         });
+        const otherIds = new Set(others.map((o) => o.userId));
         for (const o of others) io.to(`user:${o.userId}`).emit("chat:unread", { chatId });
+        for (const u of mentioned) if (u.id !== user.id && otherIds.has(u.id)) await notify({ userId: u.id, actorId: user.id, type: "mention", chatId });
         ack?.({ ok: true, message: dto });
       } catch (e) {
         console.error("[socket] chat:message failed", e);

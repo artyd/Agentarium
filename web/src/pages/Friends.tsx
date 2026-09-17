@@ -70,14 +70,16 @@ export function Friends() {
     const onDelete = (p: { id: string; chatId: string }) => {
       if (p.chatId === activeChat) setMessages((ms) => ms.filter((m) => m.id !== p.id));
     };
+    const onPresence = () => { loadChats(); loadPeople(); };
     s.on("chat:message", onMsg);
     s.on("chat:typing", onTyping);
     s.on("chat:unread", loadChats);
     s.on("chat:message:edit", onEdit);
     s.on("chat:message:delete", onDelete);
+    s.on("presence", onPresence);
     return () => {
       s.off("chat:message", onMsg); s.off("chat:typing", onTyping); s.off("chat:unread", loadChats);
-      s.off("chat:message:edit", onEdit); s.off("chat:message:delete", onDelete);
+      s.off("chat:message:edit", onEdit); s.off("chat:message:delete", onDelete); s.off("presence", onPresence);
     };
   }, [activeChat, me?.id, me?.nickname]);
 
@@ -147,7 +149,10 @@ export function Friends() {
             <div key={p.id} className="chunk" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
               <Avatar nickname={p.nickname} avatarUrl={p.avatarUrl} size={44} onClick={() => nav(`/profile/${p.nickname}`)} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="fk link" style={{ fontWeight: 600, fontSize: 15 }} onClick={() => nav(`/profile/${p.nickname}`)}>{p.nickname}</div>
+                <div className="fk link" style={{ fontWeight: 600, fontSize: 15 }} onClick={() => nav(`/profile/${p.nickname}`)}>
+                  {p.nickname}
+                  {p.online && <span title={L.online} style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#1a9c5b", marginLeft: 6, verticalAlign: "middle" }} />}
+                </div>
                 {p.bio && <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>{p.bio}</div>}
               </div>
               {p.status === "accepted" ? (
@@ -168,7 +173,10 @@ export function Friends() {
               <div key={c.id} className="hoverrow" style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 14px", background: c.id === activeChat ? "var(--hover)" : undefined }} onClick={() => openChat(c.id)}>
                 <Avatar nickname={c.title} avatarUrl={c.others[0]?.avatarUrl} size={40} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="fk" style={{ fontWeight: 600, fontSize: 14 }}>{c.title}</div>
+                  <div className="fk" style={{ fontWeight: 600, fontSize: 14 }}>
+                    {c.title}
+                    {c.online && <span title={L.online} style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#1a9c5b", marginLeft: 6, verticalAlign: "middle" }} />}
+                  </div>
                   <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.lastMessage ? stripTags(c.lastMessage.body) : "—"}</div>
                 </div>
                 {c.unread > 0 && <span className="tag" style={{ background: "var(--pink)", color: "#fff", padding: "2px 7px" }}>{c.unread}</span>}

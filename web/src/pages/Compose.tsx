@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { CommunityListItem, PostDTO } from "../api/types";
@@ -20,6 +20,8 @@ export function Compose() {
   const [bodyHtml, setBodyHtml] = useState("");
   const [code, setCode] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const imgInput = useRef<HTMLInputElement>(null);
   const [communityId, setCommunityId] = useState("");
   const [communities, setCommunities] = useState<CommunityListItem[]>([]);
   const [error, setError] = useState("");
@@ -49,6 +51,7 @@ export function Compose() {
         bodyHtml,
         codeSnippet: code.trim() || null,
         linkUrl: linkUrl.trim() || null,
+        imageUrl: imageUrl || null,
         communityId: communityId || null,
       });
       nav(`/post/${post.id}`);
@@ -86,6 +89,21 @@ export function Compose() {
           <div className="field2"><label>{L.codeOptional}</label><textarea className="finput" value={code} onChange={(e) => setCode(e.target.value)} style={{ fontFamily: "ui-monospace, monospace" }} /></div>
         )}
         <div className="field2"><label>{L.linkOptional}</label><input className="finput" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://…" /></div>
+
+        <div className="field2">
+          <label>{L.addImage}</label>
+          {imageUrl ? (
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <img src={imageUrl} alt="" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 12, border: "var(--sw) solid var(--stroke)", display: "block" }} />
+              <button className="btng" style={{ position: "absolute", top: 8, right: 8, padding: "4px 9px", boxShadow: "none" }} onClick={() => setImageUrl("")}><Icon name="x" size={12} /></button>
+            </div>
+          ) : (
+            <>
+              <button className="btng" onClick={() => imgInput.current?.click()}><Icon name="image" size={13} /> {L.addImage}</button>
+              <input ref={imgInput} type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const { url } = await api.upload(f); setImageUrl(url); } }} />
+            </>
+          )}
+        </div>
 
         {communities.length > 0 && (
           <div className="field2">

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, useLang } from "../store/providers";
 import { Icon } from "../icons/Icon";
 import { Avatar } from "./Avatar";
+import { NotificationsBell } from "./NotificationsBell";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const nav = useNavigate();
@@ -30,6 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className={`o ${lang === "ua" ? "on" : ""}`} onClick={() => setLang("ua")}>UA</span>
             <span className={`o ${lang === "en" ? "on" : ""}`} onClick={() => setLang("en")}>EN</span>
           </div>
+          <NotificationsBell />
           <div style={{ position: "relative" }}>
             <Avatar as="button" nickname={me?.nickname ?? "?"} avatarUrl={me?.avatarUrl} size={42} color="var(--pink)" onClick={() => setMenu((m) => !m)} />
             {menu && (
@@ -39,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <div style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>@{me?.nickname}</div>
                 </div>
                 <div className="com" onClick={() => { setMenu(false); nav(`/profile/${me?.nickname}`); }}><Icon name="user" /> {L.myProfile}</div>
+                <div className="com" onClick={() => { setMenu(false); nav("/settings"); }}><Icon name="wrench" /> {L.settings}</div>
                 <div className="com" onClick={async () => { setMenu(false); await logout(); nav("/"); }}><Icon name="logout" /> {L.logout}</div>
               </div>
             )}

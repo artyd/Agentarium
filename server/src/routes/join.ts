@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { cleanText } from "../lib/sanitize.js";
 import { requireAuth } from "../lib/session.js";
+import { notify } from "../lib/notify.js";
 
 const applySchema = z.object({
   name: z.string().min(2).max(40),
@@ -35,6 +36,9 @@ export default async function joinRoutes(app: FastifyInstance) {
           githubUrl: cleanText(githubUrl),
         },
       });
+      // Any member can approve — notify all existing members.
+      const members = await prisma.user.findMany({ select: { id: true } });
+      for (const m of members) await notify({ userId: m.id, type: "join_request", text: nick });
       return reply.send({ sent: true });
     },
   );

@@ -1,10 +1,14 @@
 import sanitizeHtml from "sanitize-html";
 
-const linkTransform = {
-  a: (tagName: string, attribs: Record<string, string>) => ({
-    tagName,
-    attribs: { ...attribs, target: "_blank", rel: "noopener noreferrer nofollow" },
-  }),
+const linkTransform: NonNullable<sanitizeHtml.IOptions["transformTags"]> = {
+  a: (tagName: string, attribs: Record<string, string>) => {
+    const href = attribs.href ?? "";
+    // Internal links (e.g. /profile/nick mentions) stay in-app; external open in a new tab.
+    const out: Record<string, string> = href.startsWith("/")
+      ? { href }
+      : { ...attribs, target: "_blank", rel: "noopener noreferrer nofollow" };
+    return { tagName, attribs: out };
+  },
 };
 
 // Allow-list for full rich content (post body, comments). Adds u/s underline+strike.
